@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0D1117">
+  <link rel="manifest" href="manifest.json">
+  <title>POS Licorería v3</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════ HEADER ═══════════ -->
+<header class="header">
+  <span class="header-brand">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2h-3"/><rect x="8" y="1" width="8" height="4" rx="1"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+    POS Licores
+  </span>
+  <nav class="nav" id="mainNav">
+    <button class="nav-btn active" data-view="pos">Caja</button>
+    <button class="nav-btn"        data-view="productos">Productos</button>
+    <button class="nav-btn"        data-view="categorias">Categorías</button>
+    <button class="nav-btn"        data-view="inventario">Inventario</button>
+    <button class="nav-btn"        data-view="ventas">Ventas</button>
+    <button class="nav-btn"        data-view="estadisticas">Estadísticas</button>
+  </nav>
+  <div class="header-right">
+    <div id="userChip" class="user-chip" style="display:none">
+      <span id="userName" class="user-name"></span>
+      <span id="userRole" class="user-role"></span>
+      <button id="btnLogout" class="btn-logout" title="Cerrar sesión">⎋</button>
+    </div>
+    <span id="clock" class="header-clock"></span>
+    <span id="sheetsStatus" class="sheets-status">Base de datos</span>
+  </div>
+</header>
+
+<div class="views">
+
+<!-- ═══════════ CAJA ═══════════ -->
+<section id="view-pos" class="view active">
+  <div class="pos-layout">
+    <div class="pos-left">
+      <div id="scanArea">
+        <div class="scan-bar">
+          <input id="scanInput" class="scan-input" type="text" placeholder="Escanear código o buscar producto…" autocomplete="off" autofocus>
+          <button id="btnScanClear" class="btn btn-ghost btn-sm" title="Limpiar">✕</button>
+          <button id="btnCamera" class="btn-scan-cam" title="Escanear con cámara">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
+        </div>
+        <div style="position:relative"><div id="suggestions" class="suggestions"></div></div>
+      </div>
+      <div class="cart-header">
+        <span class="cart-title">Carrito</span>
+        <span id="cartCount" class="cart-counts">0 ítems</span>
+      </div>
+      <div id="cartList" class="cart-list"></div>
+    </div>
+    <div class="pos-right">
+      <div class="pay-panel">
+        <div class="total-row"><span class="total-label">TOTAL</span><span id="posTotal" class="total-val">Bs 0.00</span></div>
+        <div class="pay-methods">
+          <button class="pay-btn active" data-method="efectivo">💵 Efectivo</button>
+          <button class="pay-btn"        data-method="qr">📱 QR</button>
+          <button class="pay-btn"        data-method="mixto">🔀 Mixto</button>
+        </div>
+        <div id="cashSection" class="cash-section">
+          <div class="cash-row"><span class="cash-label">Recibido</span>
+            <input id="cashReceived" class="cash-input" type="number" min="0" step="0.50" placeholder="0.00"></div>
+          <div class="denoms">
+            <button class="denom-btn" data-v="10">+10</button>
+            <button class="denom-btn" data-v="20">+20</button>
+            <button class="denom-btn" data-v="50">+50</button>
+            <button class="denom-btn" data-v="100">+100</button>
+            <button class="denom-btn" id="denomExact">Exacto</button>
+            <button class="denom-btn" id="denomClear">Borrar</button>
+          </div>
+          <div class="change-row"><span>Cambio</span><span id="posChange" class="change-val">Bs —</span></div>
+        </div>
+        <!-- Pago mixto: parte efectivo + parte QR -->
+        <div id="mixtoSection" class="cash-section" style="display:none">
+          <div class="cash-row"><span class="cash-label">💵 Efectivo</span>
+            <input id="mixEfectivo" class="cash-input" type="number" min="0" step="0.50" placeholder="0.00"></div>
+          <div class="cash-row"><span class="cash-label">📱 QR</span>
+            <input id="mixQr" class="cash-input" type="number" min="0" step="0.50" placeholder="0.00"></div>
+          <div class="denoms">
+            <button class="denom-btn" id="mixQrResto" title="Completar el resto con QR">QR = resto</button>
+            <button class="denom-btn" id="mixCashResto" title="Completar el resto con efectivo">Efvo = resto</button>
+          </div>
+          <div class="change-row"><span>Falta / sobra</span><span id="mixDiff" class="change-val">Bs —</span></div>
+        </div>
+        <div class="form-group" style="margin:10px 0">
+          <label class="form-label">Fecha de venta</label>
+          <input id="ventaFecha" class="form-input" type="datetime-local">
+        </div>
+        <button id="btnPay" class="btn-pay">✓ Cobrar</button>
+        <button id="btnClearCart" class="btn-clear-cart">Vaciar carrito</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ PRODUCTOS ═══════════ -->
+<section id="view-productos" class="view">
+  <div class="toolbar">
+    <input id="prodSearch" class="toolbar-search" placeholder="Buscar producto…">
+    <span class="toolbar-spacer"></span>
+    <button id="btnNuevoProd" class="btn btn-primary">+ Nuevo</button>
+  </div>
+  <div class="products-scroll"><div id="productsGrid"></div></div>
+</section>
+
+<!-- ═══════════ CATEGORÍAS ═══════════ -->
+<section id="view-categorias" class="view">
+  <div class="toolbar">
+    <span style="font-weight:700;color:var(--text2)">Categorías</span>
+    <span class="toolbar-spacer"></span>
+    <button id="btnNuevaCat" class="btn btn-primary">+ Nueva categoría</button>
+  </div>
+  <div class="view-scroll">
+    <table class="data-table">
+      <thead><tr><th>Orden</th><th>Nombre</th><th>Productos</th><th>Acciones</th></tr></thead>
+      <tbody id="catBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════ INVENTARIO ═══════════ -->
+<section id="view-inventario" class="view">
+  <div class="toolbar">
+    <input id="invSearch" class="toolbar-search" placeholder="Buscar…">
+    <span class="toolbar-spacer"></span>
+    <button id="btnRefreshInv" class="btn btn-ghost">↻ Actualizar</button>
+    <button id="btnEntradaStock" class="btn btn-primary">+ Entrada / Ajuste</button>
+  </div>
+  <div class="inv-scroll">
+    <!-- Sección: lotes por vencer / vencidos (colapsable, retraída por defecto) -->
+    <div id="invVencerPanel" class="vencer-panel collapsed" style="display:none">
+      <div class="vencer-head" id="vencerHead">
+        <span class="vencer-arrow">▶</span>
+        ⚠ Lotes por vencer <span id="vencerCount" class="vencer-count"></span>
+      </div>
+      <div id="vencerList" class="vencer-list"></div>
+    </div>
+    <table class="inv-table">
+      <thead><tr>
+        <th>Producto</th><th>Categoría</th><th>Tamaño</th><th>Sabor</th>
+        <th>Stock</th><th>Mín.</th><th>Estado</th><th>Vence</th>
+      </tr></thead>
+      <tbody id="invBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════ VENTAS ═══════════ -->
+<section id="view-ventas" class="view">
+  <div class="toolbar">
+    <span style="font-weight:700;color:var(--text2)">Ventas del día</span>
+    <span class="toolbar-spacer"></span>
+    <input id="ventasFecha" type="date" class="form-input" style="width:auto">
+  </div>
+  <div class="view-scroll">
+    <div class="summary-cards">
+      <div class="summary-card"><div class="summary-label">Total del día</div><div id="vTotalDia" class="summary-val">Bs 0.00</div><div id="vCountDia" class="summary-sub">0 ventas</div></div>
+      <div class="summary-card"><div class="summary-label">Efectivo</div><div id="vCashTotal" class="summary-val">Bs 0.00</div><div id="vCashCount" class="summary-sub">0 op.</div></div>
+      <div class="summary-card"><div class="summary-label">QR</div><div id="vQrTotal" class="summary-val">Bs 0.00</div><div id="vQrCount" class="summary-sub">0 op.</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>ID</th><th>Hora</th><th>Total Bs</th><th>Ganancia Bs</th><th>Método</th><th>Ítems</th><th>Borrar</th></tr></thead>
+      <tbody id="salesBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════ ESTADÍSTICAS ═══════════ -->
+<section id="view-estadisticas" class="view">
+  <div class="toolbar">
+    <div class="seg" id="statGran">
+      <button class="seg-btn active" data-g="dia">Día</button>
+      <button class="seg-btn"        data-g="semana">Semana</button>
+      <button class="seg-btn"        data-g="mes">Mes</button>
+    </div>
+    <span class="toolbar-spacer"></span>
+    <input id="statDesde" type="date" class="form-input" style="width:auto" title="Desde">
+    <span style="color:var(--text3)">→</span>
+    <input id="statHasta" type="date" class="form-input" style="width:auto" title="Hasta">
+    <button id="btnStatFilter" class="btn btn-primary">Aplicar</button>
+    <button id="btnStatPrint"  class="btn btn-ghost">PDF</button>
+  </div>
+  <div class="view-scroll">
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Ingresos</div><div id="stRevenue" class="kpi-val">Bs 0.00</div><div id="stCount" class="kpi-sub">0 ventas</div></div>
+      <div class="kpi-card"><div class="kpi-label">COGS</div><div id="stCogs" class="kpi-val">Bs 0.00</div></div>
+      <div class="kpi-card"><div class="kpi-label">Ganancia bruta</div><div id="stProfit" class="kpi-val">Bs 0.00</div><div id="stMargin" class="kpi-sub">Margen: —</div></div>
+      <div class="kpi-card"><div class="kpi-label">Unidades</div><div id="stUnits" class="kpi-val">0</div></div>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:1fr 1fr">
+      <div class="kpi-card"><div class="kpi-label">💵 En efectivo</div><div id="stEfectivo" class="kpi-val" style="color:var(--green)">Bs 0.00</div><div id="stEfectivoN" class="kpi-sub">0 op.</div></div>
+      <div class="kpi-card"><div class="kpi-label">📱 En QR</div><div id="stQr" class="kpi-val" style="color:var(--blue)">Bs 0.00</div><div id="stQrN" class="kpi-sub">0 op.</div></div>
+    </div>
+
+    <div class="section-title">Por período</div>
+    <table class="data-table">
+      <thead><tr><th>Período</th><th>Ventas</th><th>Unidades</th><th>Ingresos</th><th>COGS</th><th>Ganancia</th><th>💵 Efectivo</th><th>📱 QR</th></tr></thead>
+      <tbody id="stPeriodBody"></tbody>
+    </table>
+
+    <div class="section-title" style="margin-top:24px">Top productos por ganancia</div>
+    <table class="data-table">
+      <thead><tr><th>Producto</th><th>Tamaño</th><th>Sabor</th><th>Unid.</th><th>Ingresos</th><th>Ganancia</th><th>Margen</th></tr></thead>
+      <tbody id="stTopBody"></tbody>
+    </table>
+  </div>
+</section>
+
+</div><!-- /.views -->
+
+<!-- ═══════════ MODAL VARIANTE (al añadir a caja) ═══════════ -->
+<div id="modalVariante" class="modal-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head"><h3 class="modal-title">Elegir variante</h3><button class="modal-x" data-close="modalVariante">✕</button></div>
+    <div class="modal-body">
+      <p id="mvNombre" style="font-weight:700;color:var(--cyan);margin-bottom:12px"></p>
+      <div class="form-group"><label class="form-label">Tamaño</label><select id="mvTamaño" class="form-input"></select></div>
+      <div class="form-group"><label class="form-label">Sabor</label><select id="mvSabor" class="form-input"></select></div>
+      <div class="form-group"><label class="form-label">Código / presentación</label><select id="mvBarcode" class="form-input"></select></div>
+      <p id="mvStock" class="form-hint"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close="modalVariante">Cancelar</button>
+      <button id="btnAddVariante" class="btn btn-primary">Añadir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL ESCÁNER CÁMARA ═══════════ -->
+<div id="modalScanner" class="modal-overlay">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head"><h3 class="modal-title">Escáner de cámara</h3><button class="modal-x" data-close="modalScanner" id="modalScannerX">✕</button></div>
+    <div class="modal-body" style="text-align:center">
+      <video id="scannerVideo" class="scanner-video" autoplay playsinline muted></video>
+      <p id="scannerStatus" class="form-hint" style="margin-top:10px">Iniciando cámara…</p>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" data-close="modalScanner" id="btnCancelScanner">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL PRECIO ESPECIAL (editar precio en caja) ═══════════ -->
+<div id="modalDiscount" class="modal-overlay">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-head"><h3 class="modal-title">Precio especial</h3><button class="modal-x" data-close="modalDiscount">✕</button></div>
+    <div class="modal-body">
+      <input id="discIdx" type="hidden">
+      <p style="color:var(--text2);margin-bottom:10px"><strong id="discProdName"></strong></p>
+      <div class="disc-info">
+        <div class="disc-info-row"><span>Precio actual</span><span id="discPrecioOrig" style="color:var(--amber)">—</span></div>
+        <div class="disc-info-row"><span>Costo adquisición /u <button class="help-btn" title="Lo que pagaste por cada unidad (costo real de los lotes activos). No bajes el precio de aquí o pierdes.">?</button></span><span id="discCosto" style="color:var(--red)">—</span></div>
+      </div>
+      <div class="form-group"><label class="form-label">Nuevo precio unitario (Bs)</label><input id="discInput" class="form-input" type="number" min="0" step="0.50" placeholder="0.00"></div>
+      <div id="discMargen" class="disc-margen">—</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="btnDiscReset">Quitar especial</button>
+      <button class="btn btn-primary" id="btnDiscOk">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL PRODUCTO ═══════════ -->
+<div id="modalProducto" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="modalProdTitle" class="modal-title">Producto</h3><button class="modal-x" data-close="modalProducto">✕</button></div>
+    <div class="modal-body">
+      <input id="fpId" type="hidden">
+      <div class="form-grid">
+        <!-- Orden: categoría → nombre → presentación → precio/costo base -->
+        <div class="form-group"><label class="form-label">Categoría *</label><select id="fpCat" class="form-input"></select></div>
+        <div class="form-group span2"><label class="form-label">Nombre *</label><input id="fpNombre" class="form-input" type="text" placeholder="Ej: Coca-Cola"></div>
+        <div class="form-group"><label class="form-label">Presentación</label>
+          <select id="fpPresentacion" class="form-input"><option value="unidad">Unidad</option><option value="caja">Caja</option></select></div>
+        <div class="form-group"><label class="form-label">Precio base (Bs) *</label><input id="fpPrecio" class="form-input" type="number" min="0" step="0.50" placeholder="0.00"></div>
+        <div class="form-group"><label class="form-label">Costo base (Bs)</label><input id="fpCosto" class="form-input" type="number" min="0" step="0.50" placeholder="0.00"></div>
+        <div class="form-group"><label class="form-label">Stock mínimo</label><input id="fpMinStock" class="form-input" type="number" min="0" value="0"></div>
+      </div>
+
+      <!-- Tabla de variantes: cada tamaño+sabor con su propio código -->
+      <div class="barcodes-section">
+        <div class="barcodes-head">
+          <span class="barcodes-label">Variantes (tamaño · sabor · código)</span>
+          <button id="btnAddVar" class="btn btn-ghost btn-sm">+ Variante</button>
+        </div>
+        <span class="bc-hint">Cada combinación tamaño+sabor tiene su propio código de barras. Precio/costo vacíos = usan el base. Mult. = unidades por escaneo (1 = individual).</span>
+        <div class="var-head">
+          <span>Tamaño</span><span>Sabor</span><span>Código</span><span>Mult.</span><span>Precio</span><span>Costo</span><span></span>
+        </div>
+        <div id="varRows"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button id="btnDeleteProd" class="btn btn-peligro" style="display:none">🗑 Eliminar</button>
+      <span class="toolbar-spacer"></span>
+      <button class="btn btn-ghost" data-close="modalProducto">Cancelar</button>
+      <button id="btnSaveProd" class="btn btn-primary">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL CATEGORÍA ═══════════ -->
+<div id="modalCategoria" class="modal-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head"><h3 id="modalCatTitle" class="modal-title">Categoría</h3><button class="modal-x" data-close="modalCategoria">✕</button></div>
+    <div class="modal-body">
+      <input id="fcId" type="hidden">
+      <div class="form-group"><label class="form-label">Nombre *</label><input id="fcNombre" class="form-input" type="text" placeholder="Ej: Cervezas"></div>
+      <div class="form-group"><label class="form-label">Orden</label><input id="fcOrden" class="form-input" type="number" min="0" value="0"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close="modalCategoria">Cancelar</button>
+      <button id="btnSaveCat" class="btn btn-primary">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL STOCK / LOTE ═══════════ -->
+<div id="modalStock" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-head"><h3 class="modal-title">Entrada / Ajuste de stock</h3><button class="modal-x" data-close="modalStock">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Producto *</label><select id="adjProd" class="form-input"></select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label class="form-label">Tamaño</label><select id="adjTamaño" class="form-input"></select></div>
+        <div class="form-group"><label class="form-label">Sabor</label><select id="adjSabor" class="form-input"></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label class="form-label">Cantidad *</label><input id="adjCantidad" class="form-input" type="number" min="1" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">Costo total lote (Bs) *</label>
+          <div style="display:flex;gap:6px"><input id="adjCostoTotal" class="form-input" type="number" min="0" step="0.50" placeholder="0.00" style="flex:1;min-width:0"><button type="button" id="btnCalcUnit" class="btn-calc-unit">÷/u</button></div></div>
+      </div>
+      <div class="form-group"><label class="form-label">Costo por unidad (Bs)</label><input id="adjCosto" class="form-input" type="number" step="0.000001" readonly placeholder="—" style="opacity:.65"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label class="form-label">Fecha compra *</label><input id="adjFecha" class="form-input" type="date"></div>
+        <div class="form-group"><label class="form-label">Vencimiento</label><input id="adjVencimiento" class="form-input" type="date"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Notas</label><input id="adjNotas" class="form-input" type="text" placeholder="Proveedor, factura…"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close="modalStock">Cancelar</button>
+      <button id="btnSaveAdj" class="btn btn-primary">Guardar lote</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL LOTES FIFO (ver lotes de una variante) ═══════════ -->
+<div id="modalLotes" class="modal-overlay">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-head">
+      <div>
+        <h3 id="lotesTitulo" class="modal-title">Lotes</h3>
+        <span id="lotesResumen" class="form-hint"></span>
+      </div>
+      <button class="modal-x" data-close="modalLotes">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="form-hint" style="margin-bottom:10px">Orden FIFO: el lote 1º (más antiguo) se vende primero.</p>
+      <table class="data-table">
+        <thead><tr>
+          <th>#</th><th>Compra</th><th>Costo/u</th><th>Rest. / inicial</th><th>Valor</th><th>Vence</th><th>Notas</th><th>Acciones</th>
+        </tr></thead>
+        <tbody id="lotesBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close="modalLotes">Cerrar</button>
+      <button id="btnLotesEntrada" class="btn btn-primary">+ Entrada / Ajuste</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL EDITAR LOTE ═══════════ -->
+<div id="modalEditLote" class="modal-overlay">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head"><h3 class="modal-title">✏ Editar lote</h3><button class="modal-x" data-close="modalEditLote">✕</button></div>
+    <div class="modal-body">
+      <input id="elId" type="hidden">
+      <p id="elProdInfo" class="form-hint" style="margin-bottom:12px"></p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label class="form-label">Qty restante</label><input id="elQtyRest" class="form-input" type="number" min="0" step="1"></div>
+        <div class="form-group"><label class="form-label">Qty inicial</label><input id="elQtyIni" class="form-input" type="number" min="0" step="1"></div>
+        <div class="form-group"><label class="form-label">Costo/u (Bs)</label><input id="elCosto" class="form-input" type="number" min="0" step="0.000001"></div>
+        <div class="form-group"><label class="form-label">Fecha compra</label><input id="elFecha" class="form-input" type="date"></div>
+        <div class="form-group"><label class="form-label">Vencimiento</label><input id="elVence" class="form-input" type="date"></div>
+        <div class="form-group"><label class="form-label">&nbsp;</label><span class="form-hint">Vacío = sin vencimiento</span></div>
+      </div>
+      <div class="form-group" style="margin-top:4px"><label class="form-label">Notas</label><input id="elNotas" class="form-input" type="text" placeholder="Proveedor, factura…"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close="modalEditLote">Cancelar</button>
+      <button id="btnSaveEditLote" class="btn btn-primary">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL TICKET ═══════════ -->
+<div id="modalTicket" class="modal-overlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head"><h3 class="modal-title">Ticket de venta</h3><button class="modal-x" data-close="modalTicket">✕</button></div>
+    <div class="modal-body"><pre id="ticketContent" class="ticket-content"></pre></div>
+    <div class="modal-foot"><button class="btn btn-ghost" data-close="modalTicket">Cerrar</button><button id="btnPrintTicket" class="btn btn-primary">🖨 Imprimir</button></div>
+  </div>
+</div>
+
+<!-- ═══════════ TOAST + OVERLAY ═══════════ -->
+<!-- Banner de aviso de vencimientos (al abrir) -->
+<div id="expiryBanner" class="expiry-banner" style="display:none">
+  <span id="expiryBannerText"></span>
+  <button id="expiryBannerGo" class="btn btn-sm">Ver</button>
+  <button id="expiryBannerX" class="expiry-banner-x" title="Cerrar">✕</button>
+</div>
+
+<!-- Modal de confirmación reutilizable -->
+<div id="modalConfirm" class="modal-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head"><h3 id="confTitulo" class="modal-title">Confirmar</h3></div>
+    <div class="modal-body"><p id="confMensaje" style="color:var(--text2);line-height:1.5"></p></div>
+    <div class="modal-foot">
+      <button id="confNo" class="btn btn-ghost">Cancelar</button>
+      <button id="confSi" class="btn btn-primary">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="processOverlay"><div class="process-spinner"></div><div class="process-msg" id="processMsg">Procesando…</div></div>
+
+<!-- ═══════════ LOGIN ═══════════ -->
+<div id="loginScreen" class="login-screen" style="display:none">
+  <div class="login-card">
+    <div class="login-brand">🍺 POS Licores</div>
+    <p class="login-sub">Ingresa tus credenciales</p>
+    <div class="login-fields">
+      <input id="loginUser" class="form-input" type="text" placeholder="Usuario" autocomplete="username" style="margin-bottom:10px">
+      <input id="loginPass" class="form-input" type="password" placeholder="Contraseña" autocomplete="current-password">
+    </div>
+    <button id="btnLogin" class="btn-glogin" style="margin-top:16px;justify-content:center">🔒 Iniciar sesión</button>
+    <p id="loginError" class="login-error"></p>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script src="sheets.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

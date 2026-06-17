@@ -1,0 +1,4 @@
+id,producto_id,tamaño,sabor,fecha_compra,costo_u,qty_inicial,qty_restante,vencimiento,notas
+LOT-EJ001,PRD-EJ001,620ml,,01/06/2026,8,24,24,,Compra inicial
+LOT-EJ002,PRD-EJ002,2L,Cola,01/06/2026,8,12,12,,
+LOT-EJ003,PRD-EJ002,600ml,Cola,01/06/2026,4,24,24,,

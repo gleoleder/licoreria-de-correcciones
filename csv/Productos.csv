@@ -1,0 +1,4 @@
+id,categoria_id,nombre,presentacion,precio,costo,stock_min,variantes
+PRD-EJ001,CAT-EJ001,Paceña,unidad,12,8,12,"[{""tamaño"":""620ml"",""sabor"":"""",""code"":""7790001"",""multiplier"":1,""precio"":12,""costo"":8},{""tamaño"":""330ml"",""sabor"":"""",""code"":""7790002"",""multiplier"":1,""precio"":7,""costo"":5}]"
+PRD-EJ002,CAT-EJ002,Coca-Cola,unidad,12,8,6,"[{""tamaño"":""2L"",""sabor"":""Cola"",""code"":""7790010"",""multiplier"":1,""precio"":12,""costo"":8},{""tamaño"":""2L"",""sabor"":""Zero"",""code"":""7790011"",""multiplier"":1,""precio"":12,""costo"":8},{""tamaño"":""600ml"",""sabor"":""Cola"",""code"":""7790012"",""multiplier"":1,""precio"":6,""costo"":4}]"
+PRD-EJ003,CAT-EJ003,Singani Casa Real,unidad,55,38,4,"[{""tamaño"":""750ml"",""sabor"":"""",""code"":""7790020"",""multiplier"":1,""precio"":55,""costo"":38}]"
