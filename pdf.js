@@ -293,7 +293,11 @@
       const prod = variante ? (nombre + ' · ' + variante) : nombre;
       const qty = l.qty_inicial || 0;
       const costoU = l.costo_u || 0;
-      const costoLote = qty * costoU;
+      // El sistema guarda costo_u = round(total/qty, 6dec) y NO el total original.
+      // Reconstruimos el costo real del lote (como se compró) redondeando a
+      // centavos: así se recupera el importe exacto y el total cuadra sin
+      // arrastrar fracciones de centavo por el redondeo de la división.
+      const costoLote = Math.round(qty * costoU * 100) / 100;
       gastoTotal += costoLote;
       unidadesTotal += qty;
       return [
