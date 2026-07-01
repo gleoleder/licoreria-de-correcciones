@@ -271,6 +271,86 @@
   }
 
   // ═══════════════════════════════════════════════════════
+  //  REPORTE — LOTES (gasto por lote)
+  //  Muestra cada lote con su costo total. Simple y directo.
+  // ═══════════════════════════════════════════════════════
+  function exportLotes() {
+    const doc = getDoc();
+    if (!doc) return;
+    const titulo = 'REPORTE DE LOTES';
+    const subtitulo = 'Costo de cada lote comprado';
+
+    // Todos los lotes, ordenados por fecha de compra (más antiguo primero)
+    const lotes = (Store.lotes || []).slice().sort(
+      (a, b) => new Date(a.fecha_compra) - new Date(b.fecha_compra)
+    );
+
+    let gastoTotal = 0, unidadesTotal = 0;
+    const body = lotes.map(l => {
+      const p = Store.getProducto(l.producto_id);
+      const nombre = (p ? p.nombre : (l.producto_id || '—'));
+      const variante = [l.tamaño, l.sabor].filter(Boolean).join(' · ');
+      const prod = variante ? (nombre + ' · ' + variante) : nombre;
+      const qty = l.qty_inicial || 0;
+      const costoU = l.costo_u || 0;
+      const costoLote = qty * costoU;
+      gastoTotal += costoLote;
+      unidadesTotal += qty;
+      return [
+        prod,
+        fecha(l.fecha_compra),
+        String(qty),
+        money(costoU),
+        money(costoLote)
+      ];
+    });
+
+    // Fila de total (solo al final)
+    const totalRow = [
+      { content: 'GASTO TOTAL EN LOTES', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: String(unidadesTotal), styles: { halign: 'center', fontStyle: 'bold' } },
+      { content: '' },
+      { content: money(gastoTotal), styles: { halign: 'right', fontStyle: 'bold' } }
+    ];
+    body.push(totalRow);
+    const totalRowIdx = body.length - 1;
+
+    header(doc, titulo, subtitulo);
+    let y = 34;
+    y = resumenCajas(doc, y, [
+      { label: 'Total lotes', value: String(lotes.length) },
+      { label: 'Unidades compradas', value: String(unidadesTotal) },
+      { label: 'Gasto total', value: money(gastoTotal), color: C.navy, sub: 'invertido en compras' }
+    ]);
+    y += 4;
+
+    doc.autoTable(Object.assign(commonTable(doc, titulo, subtitulo), {
+      startY: y,
+      head: [['Producto', 'Fecha compra', 'Cantidad', 'Costo/u', 'Costo total lote']],
+      body: body,
+      columnStyles: {
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'right' },
+        4: { halign: 'right' }
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.row.index === totalRowIdx) {
+          data.cell.styles.fillColor = [230, 234, 241];
+          data.cell.styles.textColor = C.navy;
+        }
+      },
+      margin: { top: 14, bottom: 16, left: 14, right: 14 },
+      didDrawPage: (data) => {
+        if (data.pageNumber === 1) header(doc, titulo, subtitulo);
+        footer(doc);
+      }
+    }));
+
+    doc.save('lotes_' + new Date().toISOString().slice(0, 10) + '.pdf');
+  }
+
+  // ═══════════════════════════════════════════════════════
   //  REPORTE 2 — VENTAS DEL DÍA / RANGO
   // ═══════════════════════════════════════════════════════
   async function exportVentas(dateStr) {
@@ -373,5 +453,5 @@
   }
 
   // Exponer API global
-  window.POSPdf = { exportInventario, exportVentas };
+  window.POSPdf = { exportInventario, exportLotes, exportVentas };
 })();
