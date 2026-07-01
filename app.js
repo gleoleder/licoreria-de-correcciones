@@ -1222,6 +1222,8 @@ async function init() {
   $('btnCalcUnit').addEventListener('click', recalcCostoUnit);
   $('btnSaveAdj').addEventListener('click', saveStockAdj);
   $('btnRefreshInv').addEventListener('click', () => recargar(true));
+  $('btnInvPDF').addEventListener('click', () => { try { POSPdf.exportInventario(); } catch(err){ toast('Error al generar PDF','error'); console.error(err);} });
+  $('btnVentasPDF').addEventListener('click', async () => { try { showOverlay('Generando PDF…'); await POSPdf.exportVentas($('ventasFecha').value); } catch(err){ toast('Error al generar PDF','error'); console.error(err);} finally { hideOverlay(); } });
   $('btnPrintTicket').addEventListener('click', () => window.print());
   $('prodSearch').addEventListener('input', e => renderProducts(e.target.value));
   $('invSearch').addEventListener('input', e => renderInventory(e.target.value));

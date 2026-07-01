@@ -132,6 +132,7 @@
     <input id="invSearch" class="toolbar-search" placeholder="Buscar…">
     <span class="toolbar-spacer"></span>
     <button id="btnRefreshInv" class="btn btn-ghost">↻ Actualizar</button>
+    <button id="btnInvPDF" class="btn btn-ghost">📄 PDF</button>
     <button id="btnEntradaStock" class="btn btn-primary">+ Entrada / Ajuste</button>
   </div>
   <div class="inv-scroll">
@@ -158,6 +159,7 @@
   <div class="toolbar">
     <span style="font-weight:700;color:var(--text2)">Ventas del día</span>
     <span class="toolbar-spacer"></span>
+    <button id="btnVentasPDF" class="btn btn-ghost">📄 PDF</button>
     <input id="ventasFecha" type="date" class="form-input" style="width:auto">
   </div>
   <div class="view-scroll">
@@ -447,9 +449,12 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="config.js"></script>
 <script src="store.js"></script>
 <script src="sheets.js"></script>
+<script src="pdf.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

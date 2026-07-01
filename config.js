@@ -15,6 +15,15 @@
 //                     Ejecutar como: Yo | Acceso: Cualquier usuario
 // ───────────────────────────────────────────────────────
 
+// Datos del negocio (aparecen en los reportes PDF)
+var NEGOCIO = {
+  nombre:    'Licorería',
+  subtitulo: 'Reporte generado por POS Licores',
+  direccion: '',      // Ej: 'Av. Cívica #123, Oruro'
+  telefono:  '',      // Ej: 'Tel: 700-00000'
+  nit:       ''       // Ej: 'NIT: 1234567'
+};
+
 var SHEETS_ID       = '1L13a3OM7PCCUGvYTanHofM1EuOPaJ0a99_V1zR0W45w';
 var SHEETS_API_KEY  = 'AIzaSyAOhGTjJXHhuUhqf1g2DPCla59xNzftb-Q';
 var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw9OmOV1B8YaIaOJ9QkIilL5YW6dwGkKYim5M9MGqG5gLcxHh4lkLsuB_s3JXUA2w/exec';
