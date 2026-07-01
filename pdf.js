@@ -143,11 +143,16 @@
 
     const vars = (typeof todasLasVariantes === 'function') ? todasLasVariantes() : [];
 
-    // Construir filas + totales
+    // Construir filas + totales — solo variantes CON lotes/stock
     let totUnidades = 0, totValorCosto = 0, totValorVenta = 0;
     let nAgotados = 0, nBajos = 0;
 
-    const rows = vars.map(v => {
+    const rows = [];
+    vars.forEach(v => {
+      const lots = Store.lotesActivos(v.producto.id, v.tamaño, v.sabor);
+      // Omitir variantes sin lotes existentes
+      if (!lots.length) return;
+
       const stock = Store.variantStock(v.producto.id, v.tamaño, v.sabor);
       const min = v.producto.stock_min || 0;
       const info = Store.variantInfo(v.producto, v.tamaño, v.sabor);
@@ -160,18 +165,15 @@
       if (stock <= 0) { estado = 'Agotado'; nAgotados++; }
       else if (stock < min) { estado = 'Stock bajo'; nBajos++; }
 
-      const lots = Store.lotesActivos(v.producto.id, v.tamaño, v.sabor);
       let venceTxt = '—';
-      if (lots.length) {
-        const prox = lots.map(l => l.vencimiento).filter(Boolean).sort()[0];
-        if (prox) venceTxt = fecha(prox);
-      }
+      const prox = lots.map(l => l.vencimiento).filter(Boolean).sort()[0];
+      if (prox) venceTxt = fecha(prox);
 
       totUnidades += stock;
       totValorCosto += valorCosto;
       totValorVenta += valorVenta;
 
-      return {
+      rows.push({
         estado,
         cells: [
           v.producto.nombre || '',
@@ -186,14 +188,14 @@
           money(valorCosto),
           venceTxt
         ]
-      };
+      });
     });
 
-    // Encabezado + resumen
+    // Encabezado + resumen (solo en la primera página)
     header(doc, titulo, subtitulo);
     let y = 34;
     y = resumenCajas(doc, y, [
-      { label: 'Ítems', value: String(vars.length), sub: 'variantes' },
+      { label: 'Ítems', value: String(rows.length), sub: 'variantes' },
       { label: 'Unidades', value: String(totUnidades), sub: 'en stock' },
       { label: 'Valor costo', value: money(totValorCosto), color: C.amber },
       { label: 'Valor venta', value: money(totValorVenta), color: C.green }
@@ -207,15 +209,35 @@
     ]);
     y += 4;
 
+    // Fila de TOTALES: se agrega al final del cuerpo para que aparezca
+    // solo una vez, en la última página (no repetida por hoja como un foot).
+    const totalRow = [
+      { content: 'TOTALES', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: String(totUnidades), styles: { halign: 'center', fontStyle: 'bold' } },
+      { content: '', colSpan: 4 },
+      { content: money(totValorCosto), styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: '' }
+    ];
+    const body = rows.map(r => r.cells);
+    body.push(totalRow);
+    const totalRowIdx = body.length - 1;
+
     doc.autoTable(Object.assign(commonTable(doc, titulo, subtitulo), {
       startY: y,
       head: [['Producto', 'Categoría', 'Tamaño', 'Sabor', 'Stock', 'Mín', 'Estado', 'Costo/u', 'Precio/u', 'Valor costo', 'Vence']],
-      body: rows.map(r => r.cells),
+      body: body,
       columnStyles: {
         4: { halign: 'center' }, 5: { halign: 'center' },
         7: { halign: 'right' }, 8: { halign: 'right' }, 9: { halign: 'right' }
       },
       didParseCell: (data) => {
+        // Estilo de la fila de totales
+        if (data.section === 'body' && data.row.index === totalRowIdx) {
+          data.cell.styles.fillColor = [230, 234, 241];
+          data.cell.styles.textColor = C.navy;
+          return;
+        }
+        // Color del estado
         if (data.section === 'body' && data.column.index === 6) {
           const est = data.cell.raw;
           if (est === 'Agotado') { data.cell.styles.textColor = C.red; data.cell.styles.fontStyle = 'bold'; }
@@ -223,14 +245,12 @@
           else { data.cell.styles.textColor = C.green; }
         }
       },
-      foot: [[
-        { content: 'TOTALES', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-        { content: String(totUnidades), styles: { halign: 'center', fontStyle: 'bold' } },
-        '', '', '', '',
-        { content: money(totValorCosto), styles: { halign: 'right', fontStyle: 'bold' } },
-        ''
-      ]],
-      footStyles: { fillColor: [230, 234, 241], textColor: C.navy, fontSize: 8.5 }
+      // Encabezado corporativo SOLO en la primera página; pie en todas.
+      margin: { top: 14, bottom: 16, left: 14, right: 14 },
+      didDrawPage: (data) => {
+        if (data.pageNumber === 1) header(doc, titulo, subtitulo);
+        footer(doc);
+      }
     }));
 
     doc.save('inventario_' + new Date().toISOString().slice(0, 10) + '.pdf');
