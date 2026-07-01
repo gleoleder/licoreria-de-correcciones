@@ -109,7 +109,8 @@ const Sheets = {
       qty_inicial:   l.qty_inicial   || 0,
       qty_restante:  l.qty_restante  || 0,
       vencimiento:   l.vencimiento   || '',
-      notas:         l.notas         || ''
+      notas:         l.notas         || '',
+      costo_total:   l.costo_total   || 0
     });
   },
   async updateLote(id, qty_restante) {
@@ -127,7 +128,8 @@ const Sheets = {
       qty_inicial:   l.qty_inicial  || 0,
       qty_restante:  l.qty_restante || 0,
       vencimiento:   l.vencimiento  || '',
-      notas:         l.notas        || ''
+      notas:         l.notas        || '',
+      costo_total:   l.costo_total  || 0
     });
   },
   async deleteLote(id) {
@@ -230,7 +232,10 @@ const Sheets = {
           qty_inicial:  this._num(r, 6),
           qty_restante: this._num(r, 7),
           vencimiento:  this._date(this._val(r, 8)) || '',
-          notas:        this._val(r, 9)
+          notas:        this._val(r, 9),
+          // Col K (índice 10): costo total real del lote como se compró.
+          // Lotes viejos sin este dato → se reconstruye con qty_inicial × costo_u.
+          costo_total:  this._num(r, 10) || Math.round(this._num(r, 6) * this._num(r, 5) * 100) / 100
         });
       }
     } catch (e) { console.warn('[loadAll] Lotes:', e); Store.lotes = []; }

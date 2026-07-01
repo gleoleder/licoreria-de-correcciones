@@ -114,6 +114,7 @@ function deleteProducto(d) {
 //  LOTES
 //  Cols: A=id | B=producto_id | C=tamaño | D=sabor | E=fecha_compra
 //        F=costo_u | G=qty_inicial | H=qty_restante | I=vencimiento | J=notas
+//        K=costo_total  (costo total real del lote, como se compró)
 // ════════════════════════════════════════════════════
 function addLote(d) {
   var sheet = sh('Lotes');
@@ -126,7 +127,7 @@ function addLote(d) {
     id, d.producto_id || '', d['tamaño'] || '', d.sabor || '',
     fmtIso(d.fecha_compra), d.costo_u || 0,
     d.qty_inicial || 0, d.qty_restante || 0,
-    fmtIso(d.vencimiento), d.notas || ''
+    fmtIso(d.vencimiento), d.notas || '', d.costo_total || 0
   ]);
   return ok('lote agregado id=' + id);
 }
@@ -149,6 +150,7 @@ function editLote(d) {
   sheet.getRange(n, 8).setValue(d.qty_restante || 0);
   sheet.getRange(n, 9).setValue(fmtIso(d.vencimiento));
   sheet.getRange(n, 10).setValue(d.notas || '');
+  sheet.getRange(n, 11).setValue(d.costo_total || 0);
   return ok('lote editado');
 }
 function deleteLote(d) {

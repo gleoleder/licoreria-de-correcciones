@@ -936,6 +936,8 @@ async function guardarEditLote() {
   l.qty_restante = qr;
   l.qty_inicial  = isNaN(qi) ? l.qty_inicial : qi;
   l.costo_u      = isNaN(co) ? l.costo_u : co;
+  // Recalcular costo total del lote a partir de qty inicial × costo/u
+  l.costo_total  = Math.round((l.qty_inicial || 0) * (l.costo_u || 0) * 100) / 100;
   l.fecha_compra = new Date(fe + 'T12:00:00').toISOString();
   l.vencimiento  = $('elVence').value ? new Date($('elVence').value + 'T12:00:00').toISOString() : '';
   l.notas        = $('elNotas').value.trim();
@@ -999,7 +1001,7 @@ async function saveStockAdj() {
     id: nuevoLoteId(), producto_id: p.id,
     tamaño: $('adjTamaño').value, sabor: $('adjSabor').value,
     fecha_compra: new Date(fecha+'T12:00:00').toISOString(),
-    costo_u: costoU, qty_inicial: cant, qty_restante: cant,
+    costo_u: costoU, costo_total: Math.round(total*100)/100, qty_inicial: cant, qty_restante: cant,
     vencimiento: $('adjVencimiento').value ? new Date($('adjVencimiento').value+'T12:00:00').toISOString() : '',
     notas: $('adjNotas').value.trim()
   };
