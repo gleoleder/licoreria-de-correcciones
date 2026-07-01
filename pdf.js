@@ -139,7 +139,7 @@
     const doc = getDoc();
     if (!doc) return;
     const titulo = 'REPORTE DE INVENTARIO';
-    const subtitulo = 'Detalle de existencias y valorización';
+    const subtitulo = 'Existencias, valorización e inversión en lotes';
 
     const vars = (typeof todasLasVariantes === 'function') ? todasLasVariantes() : [];
 
@@ -191,21 +191,35 @@
       });
     });
 
+    // Inversión total en lotes (TODOS los lotes, incluso agotados):
+    //   gastoTotalLotes  = Σ (qty_inicial × costo_u)  → lo que gastaste comprando
+    //   valorStockActual = Σ (qty_restante × costo_u) → lo que aún tienes en bodega
+    //   gastoConsumido   = diferencia → costo de lo ya vendido/consumido
+    let gastoTotalLotes = 0, valorStockActual = 0, nLotesTotal = 0;
+    (Store.lotes || []).forEach(l => {
+      nLotesTotal++;
+      gastoTotalLotes  += (l.qty_inicial  || 0) * (l.costo_u || 0);
+      valorStockActual += (l.qty_restante || 0) * (l.costo_u || 0);
+    });
+    const gastoConsumido = gastoTotalLotes - valorStockActual;
+
     // Encabezado + resumen (solo en la primera página)
     header(doc, titulo, subtitulo);
     let y = 34;
+    // Fila 1: inversión en compras (lo que gastaste hasta el momento)
     y = resumenCajas(doc, y, [
-      { label: 'Ítems', value: String(rows.length), sub: 'variantes' },
-      { label: 'Unidades', value: String(totUnidades), sub: 'en stock' },
-      { label: 'Valor costo', value: money(totValorCosto), color: C.amber },
-      { label: 'Valor venta', value: money(totValorVenta), color: C.green }
+      { label: 'Gasto total en lotes', value: money(gastoTotalLotes), color: C.navy, sub: nLotesTotal + ' lotes comprados' },
+      { label: 'Valor stock actual', value: money(valorStockActual), color: C.amber, sub: 'costo en bodega' },
+      { label: 'Costo ya vendido', value: money(gastoConsumido), color: C.gray, sub: 'lotes consumidos' },
+      { label: 'Valor venta stock', value: money(totValorVenta), color: C.green, sub: 'a precio de venta' }
     ]);
     y += 3;
+    // Fila 2: existencias y estados
     y = resumenCajas(doc, y, [
-      { label: 'Utilidad potencial', value: money(totValorVenta - totValorCosto), color: C.green },
+      { label: 'Ítems', value: String(rows.length), sub: 'variantes con stock' },
+      { label: 'Unidades', value: String(totUnidades), sub: 'en stock' },
       { label: 'Agotados', value: String(nAgotados), color: nAgotados ? C.red : C.navy },
-      { label: 'Stock bajo', value: String(nBajos), color: nBajos ? C.amber : C.navy },
-      { label: 'Fecha', value: fecha(new Date().toISOString()) }
+      { label: 'Stock bajo', value: String(nBajos), color: nBajos ? C.amber : C.navy }
     ]);
     y += 4;
 
