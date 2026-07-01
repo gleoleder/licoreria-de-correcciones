@@ -234,9 +234,9 @@ const Sheets = {
           vencimiento:  this._date(this._val(r, 8)) || '',
           notas:        this._val(r, 9),
           // Col K (índice 10): costo total real del lote como se compró.
-          // Lotes viejos sin este dato → inversa de la división (qty × costo_u),
-          // redondeada a centavos para recuperar el total que se escribió.
-          costo_total:  this._num(r, 10) || Math.round(this._num(r, 6) * this._num(r, 5) * 100) / 100
+          // Lotes viejos sin este dato → qty × costo_u redondeado al múltiplo
+          // de 0.50 más cercano (.00 o .50).
+          costo_total:  this._num(r, 10) || Math.round(this._num(r, 6) * this._num(r, 5) * 2) / 2
         });
       }
     } catch (e) { console.warn('[loadAll] Lotes:', e); Store.lotes = []; }

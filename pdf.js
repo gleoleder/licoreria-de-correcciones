@@ -294,13 +294,11 @@
       const qty = l.qty_inicial || 0;
       const costoU = l.costo_u || 0;
       // Costo total real del lote, tal como se compró (guardado en la base).
-      // Si el lote es viejo y no tiene el dato: la inversa de la división que
-      // hizo el sistema (costo_u = total ÷ qty) es multiplicar de nuevo,
-      // redondeando a centavos para recuperar el total que probablemente
-      // se escribió.
+      // Si el lote es viejo y no tiene el dato: qty × costo_u redondeado al
+      // múltiplo de 0.50 más cercano (termina en .00 o .50).
       const costoLote = (l.costo_total != null && l.costo_total > 0)
         ? l.costo_total
-        : Math.round(qty * costoU * 100) / 100;
+        : Math.round(qty * costoU * 2) / 2;
       gastoTotal += costoLote;
       unidadesTotal += qty;
       return [
