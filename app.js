@@ -585,9 +585,76 @@ ${venta.metodo==='efectivo' ? `Recibido: ${fmtN(recibido||0)}\nCambio:   ${fmtN(
 // ═══════════════════════════════════════════════════════
 //  PRODUCTOS
 // ═══════════════════════════════════════════════════════
-function poblarCatSelect(sel, selected) {
-  sel.innerHTML = Store.categoriasOrdenadas().map(c =>
-    `<option value="${esc(c.id)}" ${c.id===selected?'selected':''}>${esc(c.nombre)}</option>`).join('');
+// Normaliza texto: minúsculas y sin acentos, para comparar sin importar
+// mayúsculas/minúsculas ni tildes (á=a, ñ se conserva).
+function normCat(s) {
+  return (s || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .trim();
+}
+
+// "Puebla" el buscador de categoría: fija el id (hidden) y el texto visible.
+function poblarCatSelect(hidden, selected) {
+  const search = $('fpCatSearch');
+  hidden.value = selected || '';
+  const cat = selected ? Store.categoriasOrdenadas().find(c => c.id === selected) : null;
+  if (search) search.value = cat ? cat.nombre : '';
+  catSearchClose();
+}
+
+// ── Autocompletado de categoría (buscador con acentos/sin acentos/mayús/minús) ──
+let _catSearchIdx = -1;
+function catSearchClose() {
+  const list = $('fpCatList');
+  if (list) { list.style.display = 'none'; list.innerHTML = ''; }
+  _catSearchIdx = -1;
+}
+function catSearchRender(q) {
+  const list = $('fpCatList'); if (!list) return;
+  const nq = normCat(q);
+  const cats = Store.categoriasOrdenadas()
+    .filter(c => !nq || normCat(c.nombre).includes(nq));
+  if (!cats.length) {
+    list.innerHTML = '<div class="cat-search-empty">Sin coincidencias</div>';
+  } else {
+    list.innerHTML = cats.map((c, i) =>
+      `<div class="cat-search-item" data-id="${esc(c.id)}" data-i="${i}">${esc(c.nombre)}</div>`).join('');
+  }
+  list.style.display = 'block';
+  _catSearchIdx = -1;
+}
+function catSearchPick(id) {
+  const cat = Store.categoriasOrdenadas().find(c => c.id === id);
+  if (!cat) return;
+  $('fpCat').value = cat.id;
+  $('fpCatSearch').value = cat.nombre;
+  catSearchClose();
+}
+function initCatSearch() {
+  const search = $('fpCatSearch'), list = $('fpCatList');
+  if (!search || !list || search._wired) return;
+  search._wired = true;
+  search.addEventListener('input', () => { $('fpCat').value = ''; catSearchRender(search.value); });
+  search.addEventListener('focus', () => catSearchRender(search.value));
+  search.addEventListener('keydown', (e) => {
+    const items = [...list.querySelectorAll('.cat-search-item')];
+    if (e.key === 'ArrowDown') { e.preventDefault(); _catSearchIdx = Math.min(_catSearchIdx + 1, items.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); _catSearchIdx = Math.max(_catSearchIdx - 1, 0); }
+    else if (e.key === 'Enter') {
+      if (items[_catSearchIdx]) { e.preventDefault(); catSearchPick(items[_catSearchIdx].dataset.id); }
+      return;
+    } else if (e.key === 'Escape') { catSearchClose(); return; }
+    else return;
+    items.forEach((el, i) => el.classList.toggle('active', i === _catSearchIdx));
+    if (items[_catSearchIdx]) items[_catSearchIdx].scrollIntoView({ block: 'nearest' });
+  });
+  list.addEventListener('mousedown', (e) => {
+    const it = e.target.closest('.cat-search-item');
+    if (it) { e.preventDefault(); catSearchPick(it.dataset.id); }
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.cat-search')) catSearchClose();
+  });
 }
 function renderProducts(filter='') {
   const grid = $('productsGrid');
@@ -644,6 +711,7 @@ function catStyle(id) {
 function openNewProduct() {
   $('fpId').value = '';
   $('modalProdTitle').textContent = 'Nuevo producto';
+  initCatSearch();
   poblarCatSelect($('fpCat'), '');
   $('fpNombre').value = '';
   $('fpPresentacion').value = 'unidad';
@@ -657,6 +725,7 @@ function openEditProduct(id) {
   $('fpId').value = p.id;
   $('modalProdTitle').textContent = 'Editar producto';
   $('btnDeleteProd').style.display = '';       // editar: permitir eliminar
+  initCatSearch();
   poblarCatSelect($('fpCat'), p.categoria_id);
   $('fpNombre').value = p.nombre;
   $('fpPresentacion').value = p.presentacion || 'unidad';
@@ -683,6 +752,7 @@ function addVarRow(v = {}) {
 async function saveProduct() {
   const nombre = $('fpNombre').value.trim();
   if (!nombre) { toast('El nombre es obligatorio', 'error'); return; }
+  if (!$('fpCat').value) { toast('Selecciona una categoría de la lista', 'error'); return; }
   const precio = parseFloat($('fpPrecio').value) || 0;
   if (precio <= 0) { toast('Precio base inválido', 'error'); return; }
 

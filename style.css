@@ -292,3 +292,15 @@ input,select,textarea{font-family:inherit}
   .view.active{display:block}
   .summary-card,.kpi-card,.data-table th{background:#fff;color:#000;border-color:#ccc}
 }
+
+/* Buscador de categoría con autocompletado */
+.cat-search-list{
+  position:absolute;top:100%;left:0;right:0;z-index:50;margin-top:4px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4)
+}
+.cat-search-item{
+  padding:8px 12px;color:var(--text);cursor:pointer;font-size:.9rem
+}
+.cat-search-item:hover,.cat-search-item.active{background:var(--surface3);color:var(--cyan)}
+.cat-search-empty{padding:8px 12px;color:var(--text3);font-size:.85rem}

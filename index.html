@@ -277,7 +277,13 @@
       <input id="fpId" type="hidden">
       <div class="form-grid">
         <!-- Orden: categoría → nombre → presentación → precio/costo base -->
-        <div class="form-group"><label class="form-label">Categoría *</label><select id="fpCat" class="form-input"></select></div>
+        <div class="form-group"><label class="form-label">Categoría *</label>
+          <div class="cat-search" style="position:relative">
+            <input id="fpCatSearch" class="form-input" type="text" autocomplete="off" placeholder="Buscar categoría...">
+            <input id="fpCat" type="hidden">
+            <div id="fpCatList" class="cat-search-list" style="display:none"></div>
+          </div>
+        </div>
         <div class="form-group span2"><label class="form-label">Nombre *</label><input id="fpNombre" class="form-input" type="text" placeholder="Ej: Coca-Cola"></div>
         <div class="form-group"><label class="form-label">Presentación</label>
           <select id="fpPresentacion" class="form-input"><option value="unidad">Unidad</option><option value="caja">Caja</option></select></div>
