@@ -335,7 +335,13 @@
   <div class="modal">
     <div class="modal-head"><h3 class="modal-title">Entrada / Ajuste de stock</h3><button class="modal-x" data-close="modalStock">✕</button></div>
     <div class="modal-body">
-      <div class="form-group"><label class="form-label">Producto *</label><select id="adjProd" class="form-input"></select></div>
+      <div class="form-group"><label class="form-label">Producto *</label>
+        <div class="cat-search" style="position:relative">
+          <input id="adjProdSearch" class="form-input" type="text" autocomplete="off" placeholder="Buscar producto...">
+          <input id="adjProd" type="hidden">
+          <div id="adjProdList" class="cat-search-list" style="display:none"></div>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-group"><label class="form-label">Tamaño</label><select id="adjTamaño" class="form-input"></select></div>
         <div class="form-group"><label class="form-label">Sabor</label><select id="adjSabor" class="form-input"></select></div>

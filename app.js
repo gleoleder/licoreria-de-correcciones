@@ -593,68 +593,78 @@ function normCat(s) {
     .trim();
 }
 
-// "Puebla" el buscador de categoría: fija el id (hidden) y el texto visible.
-function poblarCatSelect(hidden, selected) {
-  const search = $('fpCatSearch');
-  hidden.value = selected || '';
-  const cat = selected ? Store.categoriasOrdenadas().find(c => c.id === selected) : null;
-  if (search) search.value = cat ? cat.nombre : '';
-  catSearchClose();
+// ── Buscador genérico con autocompletado (acentos/sin acentos/mayús/minús) ──
+// cfg: { searchId, hiddenId, listId, items:()=>[{id,nombre}], onPick? }
+const _searchers = {};
+function makeSearchSelect(cfg) {
+  const search = $(cfg.searchId), hidden = $(cfg.hiddenId), list = $(cfg.listId);
+  if (!search || !hidden || !list) return null;
+  const s = { cfg, search, hidden, list, idx: -1 };
+
+  s.close = () => { list.style.display = 'none'; list.innerHTML = ''; s.idx = -1; };
+  s.render = (q) => {
+    const nq = normCat(q);
+    const items = cfg.items().filter(it => !nq || normCat(it.nombre).includes(nq));
+    list.innerHTML = items.length
+      ? items.map(it => `<div class="cat-search-item" data-id="${esc(it.id)}">${esc(it.nombre)}</div>`).join('')
+      : '<div class="cat-search-empty">Sin coincidencias</div>';
+    list.style.display = 'block'; s.idx = -1;
+  };
+  s.pick = (id) => {
+    const it = cfg.items().find(x => String(x.id) === String(id));
+    if (!it) return;
+    hidden.value = it.id; search.value = it.nombre; s.close();
+    if (cfg.onPick) cfg.onPick(it.id);
+  };
+  // Fija valor inicial (id seleccionado) y su texto visible
+  s.set = (selected) => {
+    hidden.value = selected || '';
+    const it = selected != null && selected !== '' ? cfg.items().find(x => String(x.id) === String(selected)) : null;
+    search.value = it ? it.nombre : '';
+    s.close();
+  };
+
+  if (!search._wired) {
+    search._wired = true;
+    search.addEventListener('input', () => { hidden.value = ''; s.render(search.value); });
+    // Foco/clic: SIEMPRE lista completa (ignora el texto ya puesto)
+    search.addEventListener('focus', () => s.render(''));
+    search.addEventListener('click', () => s.render(''));
+    search.addEventListener('keydown', (e) => {
+      const items = [...list.querySelectorAll('.cat-search-item')];
+      if (e.key === 'ArrowDown') { e.preventDefault(); s.idx = Math.min(s.idx + 1, items.length - 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); s.idx = Math.max(s.idx - 1, 0); }
+      else if (e.key === 'Enter') {
+        if (items[s.idx]) { e.preventDefault(); s.pick(items[s.idx].dataset.id); }
+        return;
+      } else if (e.key === 'Escape') { s.close(); return; }
+      else return;
+      items.forEach((el, i) => el.classList.toggle('active', i === s.idx));
+      if (items[s.idx]) items[s.idx].scrollIntoView({ block: 'nearest' });
+    });
+    list.addEventListener('mousedown', (e) => {
+      const it = e.target.closest('.cat-search-item');
+      if (it) { e.preventDefault(); s.pick(it.dataset.id); }
+    });
+    document.addEventListener('click', (e) => {
+      if (!search.closest('.cat-search').contains(e.target)) s.close();
+    });
+  }
+  _searchers[cfg.searchId] = s;
+  return s;
 }
 
-// ── Autocompletado de categoría (buscador con acentos/sin acentos/mayús/minús) ──
-let _catSearchIdx = -1;
-function catSearchClose() {
-  const list = $('fpCatList');
-  if (list) { list.style.display = 'none'; list.innerHTML = ''; }
-  _catSearchIdx = -1;
-}
-function catSearchRender(q) {
-  const list = $('fpCatList'); if (!list) return;
-  const nq = normCat(q);
-  const cats = Store.categoriasOrdenadas()
-    .filter(c => !nq || normCat(c.nombre).includes(nq));
-  if (!cats.length) {
-    list.innerHTML = '<div class="cat-search-empty">Sin coincidencias</div>';
-  } else {
-    list.innerHTML = cats.map((c, i) =>
-      `<div class="cat-search-item" data-id="${esc(c.id)}" data-i="${i}">${esc(c.nombre)}</div>`).join('');
-  }
-  list.style.display = 'block';
-  _catSearchIdx = -1;
-}
-function catSearchPick(id) {
-  const cat = Store.categoriasOrdenadas().find(c => c.id === id);
-  if (!cat) return;
-  $('fpCat').value = cat.id;
-  $('fpCatSearch').value = cat.nombre;
-  catSearchClose();
-}
+// Buscador de categoría (modal producto)
 function initCatSearch() {
-  const search = $('fpCatSearch'), list = $('fpCatList');
-  if (!search || !list || search._wired) return;
-  search._wired = true;
-  search.addEventListener('input', () => { $('fpCat').value = ''; catSearchRender(search.value); });
-  search.addEventListener('focus', () => catSearchRender(search.value));
-  search.addEventListener('keydown', (e) => {
-    const items = [...list.querySelectorAll('.cat-search-item')];
-    if (e.key === 'ArrowDown') { e.preventDefault(); _catSearchIdx = Math.min(_catSearchIdx + 1, items.length - 1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); _catSearchIdx = Math.max(_catSearchIdx - 1, 0); }
-    else if (e.key === 'Enter') {
-      if (items[_catSearchIdx]) { e.preventDefault(); catSearchPick(items[_catSearchIdx].dataset.id); }
-      return;
-    } else if (e.key === 'Escape') { catSearchClose(); return; }
-    else return;
-    items.forEach((el, i) => el.classList.toggle('active', i === _catSearchIdx));
-    if (items[_catSearchIdx]) items[_catSearchIdx].scrollIntoView({ block: 'nearest' });
+  return _searchers.fpCatSearch || makeSearchSelect({
+    searchId: 'fpCatSearch', hiddenId: 'fpCat', listId: 'fpCatList',
+    items: () => Store.categoriasOrdenadas().map(c => ({ id: c.id, nombre: c.nombre }))
   });
-  list.addEventListener('mousedown', (e) => {
-    const it = e.target.closest('.cat-search-item');
-    if (it) { e.preventDefault(); catSearchPick(it.dataset.id); }
-  });
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.cat-search')) catSearchClose();
-  });
+}
+// Compat: fija categoría seleccionada en el buscador
+function poblarCatSelect(_hidden, selected) {
+  const s = initCatSearch();
+  if (s) s.set(selected);
 }
 function renderProducts(filter='') {
   const grid = $('productsGrid');
@@ -1029,21 +1039,25 @@ async function borrarLote(lotId) {
 }
 
 function openStockAdj() {
-  const sel = $('adjProd');
-  sel.innerHTML = Store.productos.map(p=>`<option value="${esc(p.id)}">${esc(p.nombre)}</option>`).join('');
   if (!Store.productos.length) { toast('Crea un producto primero', 'error'); return; }
   const fillTam = () => {
-    const p = Store.getProducto(sel.value);
+    const p = Store.getProducto($('adjProd').value);
     const tams = Store.tamañosDe(p);
     $('adjTamaño').innerHTML = (tams.length?tams:['']).map(v=>`<option value="${esc(v)}">${esc(v)||'—'}</option>`).join('');
     fillSab();
   };
   const fillSab = () => {
-    const p = Store.getProducto(sel.value);
+    const p = Store.getProducto($('adjProd').value);
     const sabs = Store.saboresDe(p, $('adjTamaño').value);
     $('adjSabor').innerHTML = (sabs.length?sabs:['']).map(v=>`<option value="${esc(v)}">${esc(v)||'—'}</option>`).join('');
   };
-  sel.onchange = fillTam;
+  // Buscador de producto con autocompletado; al elegir, recarga tamaños/sabores
+  const prodSearch = makeSearchSelect({
+    searchId: 'adjProdSearch', hiddenId: 'adjProd', listId: 'adjProdList',
+    items: () => Store.productos.map(p => ({ id: p.id, nombre: p.nombre })),
+    onPick: fillTam
+  });
+  prodSearch.set(Store.productos[0].id);   // preselecciona el primero, como antes
   $('adjTamaño').onchange = fillSab;
   fillTam();
   $('adjCantidad').value=''; $('adjCostoTotal').value=''; $('adjCosto').value='';
@@ -1057,7 +1071,8 @@ function recalcCostoUnit() {
   $('adjCosto').value = cant>0 ? calcCostoUnitario(total, cant) : '';
 }
 async function saveStockAdj() {
-  const p = Store.getProducto($('adjProd').value); if (!p) return;
+  const p = Store.getProducto($('adjProd').value);
+  if (!p) { toast('Selecciona un producto de la lista', 'error'); return; }
   const cant = parseInt($('adjCantidad').value)||0;
   const total = parseFloat($('adjCostoTotal').value)||0;
   if (cant<=0) { toast('Cantidad inválida','error'); return; }
