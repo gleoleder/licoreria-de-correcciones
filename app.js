@@ -941,14 +941,29 @@ function renderInventory(filter='') {
       estado: rankEstado(stock, min), vence };
   });
 
-  // Filtro por rango de fechas: vencimiento próximo o fecha de compra de lotes activos
+  // Filtro por rango de fechas: vencimiento próximo o fecha de compra de lotes
   const fDesde = $('invFDesde').value, fHasta = $('invFHasta').value;
+  const campo = $('invFCampo').value;
+  const filtraCompra = (fDesde || fHasta) && campo === 'compra';
+  $('invFResumen').style.display = 'none';
   if (fDesde || fHasta) {
     const enRango = f => f && (!fDesde || f >= fDesde) && (!fHasta || f <= fHasta);
-    const campo = $('invFCampo').value;
-    rows = rows.filter(r => campo === 'compra'
-      ? r.lots.some(l => enRango(l.fecha_compra ? fechaLocalISO(l.fecha_compra) : ''))
-      : enRango(r.vence ? fechaLocalISO(r.vence) : ''));
+    if (filtraCompra) {
+      // Incluye lotes agotados: interesa cuánto se COMPRÓ en el rango
+      rows.forEach(r => {
+        r.lotesRango = Store.lotesDeVariante(r.v.producto.id, r.v.tamaño, r.v.sabor)
+          .filter(l => enRango(l.fecha_compra ? fechaLocalISO(l.fecha_compra) : ''));
+      });
+      rows = rows.filter(r => r.lotesRango.length);
+      // Resumen de compras del rango (sobre lo que quedó filtrado, incl. buscador)
+      const nLotes = rows.reduce((s,r)=>s+r.lotesRango.length,0);
+      const unids  = rows.reduce((s,r)=>s+r.lotesRango.reduce((a,l)=>a+(l.qty_inicial||0),0),0);
+      const gasto  = rows.reduce((s,r)=>s+r.lotesRango.reduce((a,l)=>a+(l.qty_inicial||0)*(l.costo_u||0),0),0);
+      $('invFResumen').style.display = '';
+      $('invFResumen').innerHTML = `🧾 Compras del ${fDesde?fmtDate(fDesde):'inicio'} al ${fHasta?fmtDate(fHasta):'hoy'}${q?` (búsqueda: "${esc(filter.trim())}")`:''}: <b>${nLotes}</b> lote${nLotes!==1?'s':''} · <b>${unids}</b> unidades compradas · costo total <b>${fmt(gasto)}</b>`;
+    } else {
+      rows = rows.filter(r => enRango(r.vence ? fechaLocalISO(r.vence) : ''));
+    }
   }
 
   // Ordenamiento por columna (clic en el encabezado)
@@ -979,14 +994,26 @@ function renderInventory(filter='') {
       venceTxt = `<span class="${d!=null && d<=EXPIRY_WARN_DAYS?'exp-warn':''}">${fmtDate(r.vence)}</span>`;
     }
     const nLotes = lots.length;
-    return `<tr class="inv-row" onclick='verLotes("${esc(v.producto.id)}", ${esc(JSON.stringify(v.tamaño||''))}, ${esc(JSON.stringify(v.sabor||''))})' title="Ver lotes FIFO">
+    let lotesTag = nLotes ? `<span class="inv-lotes-tag">${nLotes} lote${nLotes>1?'s':''}</span>` : '';
+    if (r.lotesRango) {
+      const u = r.lotesRango.reduce((a,l)=>a+(l.qty_inicial||0),0);
+      lotesTag = `<span class="inv-lotes-tag">${r.lotesRango.length} compra${r.lotesRango.length>1?'s':''} · ${u} u</span>`;
+    }
+    return `<tr class="inv-row" onclick='${r.lotesRango?'verLotesRangoInv':'verLotes'}("${esc(v.producto.id)}", ${esc(JSON.stringify(v.tamaño||''))}, ${esc(JSON.stringify(v.sabor||''))})' title="Ver lotes FIFO">
       <td>${esc(v.producto.nombre)}</td>
       <td>${esc(r.categoria)}</td>
       <td>${esc(v.tamaño)||'—'}</td><td>${esc(v.sabor)||'—'}</td>
-      <td style="font-weight:700">${stock} ${nLotes?`<span class="inv-lotes-tag">${nLotes} lote${nLotes>1?'s':''}</span>`:''}</td><td>${min}</td>
+      <td style="font-weight:700">${stock} ${lotesTag}</td><td>${min}</td>
       <td>${estado}</td><td>${venceTxt}</td>
     </tr>`;
   }).join('');
+}
+
+// Abre el modal de lotes heredando el rango de compra filtrado en inventario
+function verLotesRangoInv(prodId, tam, sab) {
+  $('lotesFDesde').value = $('invFDesde').value;
+  $('lotesFHasta').value = $('invFHasta').value;
+  verLotes(prodId, tam, sab);
 }
 
 // ── Modal: lotes FIFO de una variante ─────────────────
