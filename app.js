@@ -1054,6 +1054,7 @@ function verLotes(prodId, tam, sab) {
         <td class="${venceCls}">${l.vencimiento?fmtDate(l.vencimiento):'—'}</td>
         <td class="mono" style="font-size:.72rem">${esc(l.notas)}</td>
         <td class="lote-acciones">
+          <button class="btn btn-ghost btn-sm" onclick='loteSimilar("${esc(l.id)}")' title="Nueva entrada con los datos de este lote">＋</button>
           <button class="btn btn-ghost btn-sm" onclick='editarLote("${esc(l.id)}")' title="Editar lote">✏</button>
           <button class="btn btn-ghost btn-sm" onclick='borrarLote("${esc(l.id)}")' title="Eliminar lote">🗑</button>
         </td>
@@ -1123,8 +1124,12 @@ async function borrarLote(lotId) {
   renderInventory($('invSearch').value);
 }
 
-function openStockAdj() {
+// pre (opcional): { prodId, tam, sab, cantidad, costoTotal, vencimiento, notas }
+// Sin pre → formulario limpio con producto vacío. Con pre → precargado para
+// repetir una entrada similar (desde el modal de lotes o un lote específico).
+function openStockAdj(pre) {
   if (!Store.productos.length) { toast('Crea un producto primero', 'error'); return; }
+  if (pre instanceof Event) pre = null;   // llamado directo desde addEventListener
   const fillTam = () => {
     const p = Store.getProducto($('adjProd').value);
     const tams = Store.tamañosDe(p);
@@ -1142,13 +1147,29 @@ function openStockAdj() {
     items: () => Store.productos.map(p => ({ id: p.id, nombre: p.nombre })),
     onPick: fillTam
   });
-  prodSearch.set(Store.productos[0].id);   // preselecciona el primero, como antes
   $('adjTamaño').onchange = fillSab;
+  prodSearch.set(pre ? pre.prodId : '');   // sin precarga: producto vacío
   fillTam();
-  $('adjCantidad').value=''; $('adjCostoTotal').value=''; $('adjCosto').value='';
+  if (pre) {
+    if (pre.tam != null) { $('adjTamaño').value = pre.tam; fillSab(); }
+    if (pre.sab != null) $('adjSabor').value = pre.sab;
+  }
+  $('adjCantidad').value   = pre && pre.cantidad   ? pre.cantidad   : '';
+  $('adjCostoTotal').value = pre && pre.costoTotal ? pre.costoTotal : '';
+  recalcCostoUnit();
   $('adjFecha').value = fechaLocalISO();
-  $('adjVencimiento').value=''; $('adjNotas').value='';
+  $('adjVencimiento').value = pre && pre.vencimiento ? fechaLocalISO(pre.vencimiento) : '';
+  $('adjNotas').value       = pre && pre.notas ? pre.notas : '';
   openModal('modalStock');
+}
+
+// "+ similar": nueva entrada precargada con los datos de un lote existente
+function loteSimilar(lotId) {
+  const l = Store.lotes.find(x => x.id === lotId); if (!l) return;
+  closeModal('modalLotes');
+  openStockAdj({ prodId: l.producto_id, tam: l.tamaño || '', sab: l.sabor || '',
+    cantidad: l.qty_inicial || '', costoTotal: l.costo_total || '',
+    vencimiento: l.vencimiento || '', notas: l.notas || '' });
 }
 function recalcCostoUnit() {
   const total = parseFloat($('adjCostoTotal').value)||0;
@@ -1389,7 +1410,11 @@ async function init() {
   $('btnNuevaCat').addEventListener('click', openNewCategoria);
   $('btnSaveCat').addEventListener('click', saveCategoria);
   $('btnEntradaStock').addEventListener('click', openStockAdj);
-  $('btnLotesEntrada').addEventListener('click', () => { closeModal('modalLotes'); openStockAdj(); });
+  // Desde el modal de lotes: entrada precargada con la variante que se está viendo
+  $('btnLotesEntrada').addEventListener('click', () => {
+    closeModal('modalLotes');
+    openStockAdj(_lotesCtx ? { prodId: _lotesCtx.prodId, tam: _lotesCtx.tam || '', sab: _lotesCtx.sab || '' } : null);
+  });
   $('btnSaveEditLote').addEventListener('click', guardarEditLote);
   $('btnCalcUnit').addEventListener('click', recalcCostoUnit);
   $('btnSaveAdj').addEventListener('click', saveStockAdj);
