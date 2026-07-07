@@ -748,11 +748,32 @@ function openEditProduct(id) {
   poblarCatSelect($('fpCat'), p.categoria_id);
   $('fpNombre').value = p.nombre;
   $('fpPresentacion').value = p.presentacion || 'unidad';
-  $('fpPrecio').value = p.precio; $('fpCosto').value = p.costo; $('fpMinStock').value = p.stock_min;
+  $('fpPrecio').value = p.precio; $('fpMinStock').value = p.stock_min;
+  // Costo base: si está vacío, se llena con el costo del último lote comprado
+  $('fpCosto').value = (p.costo != null && p.costo !== '' && p.costo !== 0)
+    ? p.costo : (ultimoCostoLote(p.id) ?? '');
   $('varRows').innerHTML = '';
   const vars = Store.getVariantes(p);
-  if (vars.length) vars.forEach(addVarRow); else addVarRow();
+  // Costo de cada variante vacío → costo del último lote de ESA variante
+  if (vars.length) vars.forEach(v => {
+    const conCosto = (v.costo != null && v.costo !== '') ? v : Object.assign({}, v, { costo: ultimoCostoLote(p.id, v.tamaño, v.sabor) ?? '' });
+    addVarRow(conCosto);
+  }); else addVarRow();
   openModal('modalProducto');
+}
+
+// Costo/u del lote más reciente (por fecha de compra). tam/sab omitidos =
+// cualquier variante del producto. null si no hay lotes con costo.
+function ultimoCostoLote(prodId, tam, sab) {
+  const t = tam != null ? (tam || '').trim() : null;
+  const s = sab != null ? (sab || '').trim() : null;
+  const lots = Store.lotes.filter(l => l.producto_id === prodId &&
+    (t === null || (l.tamaño || '').trim() === t) &&
+    (s === null || (l.sabor  || '').trim() === s) &&
+    (l.costo_u || 0) > 0);
+  if (!lots.length) return null;
+  lots.sort((a, b) => new Date(b.fecha_compra) - new Date(a.fecha_compra));
+  return lots[0].costo_u;
 }
 // Fila de variante: tamaño · sabor · código · multiplicador · precio · costo
 function addVarRow(v = {}) {
