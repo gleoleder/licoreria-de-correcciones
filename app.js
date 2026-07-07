@@ -151,7 +151,7 @@ function irAVista(view) {
   if (view === 'productos')    renderProducts();
   if (view === 'categorias')   renderCategorias();
   if (view === 'inventario')   renderInventory();
-  if (view === 'ventas')       renderSales($('ventasFecha').value);
+  if (view === 'ventas')       renderSales();
   if (view === 'estadisticas') aplicarStats();
 }
 function aplicarPermisos() {
@@ -1208,13 +1208,32 @@ async function saveStockAdj() {
 //  VENTAS
 // ═══════════════════════════════════════════════════════
 const _salesCache = {};
-async function renderSales(dateStr='') {
-  if (!dateStr) dateStr = fechaLocalISO();
+
+// Rango y filtro de producto activos en la vista Ventas (los usa también el PDF)
+function ventasFiltros() {
+  const desde = $('ventasFecha').value || fechaLocalISO();
+  const hasta = $('ventasHasta').value || desde;   // vacío = mismo día
+  const q = ($('ventasProd').value || '').toLowerCase().trim();
+  return { desde, hasta, q };
+}
+// Una venta coincide si algún ítem contiene el texto (nombre/tamaño/sabor)
+function ventaCoincide(v, q) {
+  if (!q) return true;
+  return (v.items || []).some(it =>
+    [it.nombre || it.producto_nombre || '', it.tamaño || '', it.sabor || '']
+      .join(' ').toLowerCase().includes(q));
+}
+
+async function renderSales() {
+  if (!$('ventasFecha').value) $('ventasFecha').value = fechaLocalISO();
+  const { desde, hasta, q } = ventasFiltros();
   setStatus('loading','Leyendo ventas…');
   let ventas;
-  try { ventas = await Sheets.loadVentasRango(dateStr, dateStr); setStatus('ok','Base de datos'); }
+  try { ventas = await Sheets.loadVentasRango(desde, hasta); setStatus('ok','Base de datos'); }
   catch (e) { setStatus('error','Error'); toast(e.message,'error'); return; }
+  ventas = ventas.filter(v => ventaCoincide(v, q));
 
+  const multiDia = desde !== hasta;
   let totalDia=0, cash=0, cashN=0, qr=0, qrN=0;
   const body = $('salesBody');
   Object.keys(_salesCache).forEach(k => delete _salesCache[k]);  // sin restos del día anterior
@@ -1225,16 +1244,17 @@ async function renderSales(dateStr='') {
     if (efectivo > 0) { cash += efectivo; cashN++; }
     if (vqr > 0)      { qr   += vqr;      qrN++; }
     const nItems = (v.items||[]).reduce((s,it)=>s+(it.qty||0),0);
+    const cuando = multiDia ? `${fmtDate(v.fecha)} ${esc(v.hora)}` : esc(v.hora);
     return `<tr>
-      <td class="mono">${esc(v.id)}</td><td>${esc(v.hora)}</td>
+      <td class="mono">${esc(v.id)}</td><td>${cuando}</td>
       <td>${fmtN(v.total)}</td><td>${fmtN(v.ganancia)}</td>
       <td>${esc(v.metodo)}</td><td>${nItems}</td>
       <td><button class="btn btn-ghost btn-sm btn-del-venta" data-i="${i}">🗑</button></td>
     </tr>`;
-  }).join('') || `<tr><td colspan="7" class="empty-cell">Sin ventas este día</td></tr>`;
+  }).join('') || `<tr><td colspan="7" class="empty-cell">Sin ventas${q?' con ese producto':''} en ${multiDia?'el rango':'este día'}</td></tr>`;
 
   $('vTotalDia').textContent = fmt(totalDia);
-  $('vCountDia').textContent = `${ventas.length} ventas`;
+  $('vCountDia').textContent = `${ventas.length} ventas${q?' (filtrado)':''}`;
   $('vCashTotal').textContent = fmt(cash); $('vCashCount').textContent = `${cashN} op.`;
   $('vQrTotal').textContent = fmt(qr); $('vQrCount').textContent = `${qrN} op.`;
 }
@@ -1419,8 +1439,11 @@ async function init() {
   $('btnCalcUnit').addEventListener('click', recalcCostoUnit);
   $('btnSaveAdj').addEventListener('click', saveStockAdj);
   $('btnRefreshInv').addEventListener('click', () => recargar(true));
-  $('btnLotesPDF').addEventListener('click', () => { try { POSPdf.exportLotes(); } catch(err){ toast('Error al generar PDF','error'); console.error(err);} });
-  $('btnVentasPDF').addEventListener('click', async () => { try { showOverlay('Generando PDF…'); await POSPdf.exportVentas($('ventasFecha').value); } catch(err){ toast('Error al generar PDF','error'); console.error(err);} finally { hideOverlay(); } });
+  // Los PDF heredan los filtros activos de su vista (producto + fechas)
+  $('btnLotesPDF').addEventListener('click', () => { try {
+    POSPdf.exportLotes({ q: $('invSearch').value, desde: $('invFDesde').value, hasta: $('invFHasta').value, campo: $('invFCampo').value });
+  } catch(err){ toast('Error al generar PDF','error'); console.error(err);} });
+  $('btnVentasPDF').addEventListener('click', async () => { try { showOverlay('Generando PDF…'); await POSPdf.exportVentas(ventasFiltros()); } catch(err){ toast('Error al generar PDF','error'); console.error(err);} finally { hideOverlay(); } });
   $('btnPrintTicket').addEventListener('click', () => window.print());
   $('prodSearch').addEventListener('input', e => renderProducts(e.target.value));
   $('invSearch').addEventListener('input', e => renderInventory(e.target.value));
@@ -1435,7 +1458,10 @@ async function init() {
 
   // Ventas: fecha hoy
   $('ventasFecha').value = fechaLocalISO();
-  $('ventasFecha').addEventListener('change', e => renderSales(e.target.value));
+  $('ventasFecha').addEventListener('change', renderSales);
+  $('ventasHasta').addEventListener('change', renderSales);
+  let _ventasProdT = null;   // debounce: cada tecla consulta la base
+  $('ventasProd').addEventListener('input', () => { clearTimeout(_ventasProdT); _ventasProdT = setTimeout(renderSales, 350); });
   $('salesBody').addEventListener('click', async e => {
     const btn = e.target.closest('.btn-del-venta'); if (!btn) return;
     const v = _salesCache[btn.dataset.i]; if (!v?.id) return;
@@ -1443,7 +1469,7 @@ async function init() {
     showOverlay('Eliminando…');
     await Sheets.deleteVenta(v.id).catch(()=>{});
     hideOverlay(); toast('🗑 Venta eliminada','success');
-    renderSales($('ventasFecha').value);
+    renderSales();
   });
 
   // Banner de vencimientos

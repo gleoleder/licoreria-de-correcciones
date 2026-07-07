@@ -167,10 +167,13 @@
 <!-- ═══════════ VENTAS ═══════════ -->
 <section id="view-ventas" class="view">
   <div class="toolbar">
-    <span style="font-weight:700;color:var(--text2)">Ventas del día</span>
+    <span style="font-weight:700;color:var(--text2)">Ventas</span>
+    <input id="ventasProd" class="toolbar-search" placeholder="Filtrar por producto…" style="max-width:220px">
     <span class="toolbar-spacer"></span>
     <button id="btnVentasPDF" class="btn btn-ghost">📄 PDF</button>
-    <input id="ventasFecha" type="date" class="form-input" style="width:auto">
+    <input id="ventasFecha" type="date" class="form-input" style="width:auto" title="Desde">
+    <span style="color:var(--text3)">→</span>
+    <input id="ventasHasta" type="date" class="form-input" style="width:auto" title="Hasta (vacío = mismo día)">
   </div>
   <div class="view-scroll">
     <div class="summary-cards">
@@ -407,6 +410,23 @@
 </div>
 
 <!-- ═══════════ MODAL EDITAR LOTE ═══════════ -->
+<!-- ═══════════ MODAL VISTA PREVIA PDF ═══════════ -->
+<div id="modalPdf" class="modal-overlay">
+  <div class="modal" style="max-width:900px;width:94vw">
+    <div class="modal-head">
+      <h3 id="pdfTitulo" class="modal-title">Vista previa del PDF</h3>
+      <button class="modal-x" data-close="modalPdf">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <iframe id="pdfFrame" style="width:100%;height:70vh;border:0;background:#3a3d41" title="Vista previa PDF"></iframe>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close="modalPdf">Cerrar</button>
+      <button id="btnPdfDownload" class="btn btn-primary">⬇ Descargar PDF</button>
+    </div>
+  </div>
+</div>
+
 <div id="modalEditLote" class="modal-overlay">
   <div class="modal" style="max-width:460px">
     <div class="modal-head"><h3 class="modal-title">✏ Editar lote</h3><button class="modal-x" data-close="modalEditLote">✕</button></div>

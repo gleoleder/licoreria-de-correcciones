@@ -45,6 +45,22 @@
     return new jsPDFns.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   }
 
+  // ── Vista previa en modal antes de descargar ──────────
+  // Muestra el PDF en un iframe; "Descargar" recién guarda el archivo.
+  // Si el modal no existe (fallback), descarga directo.
+  function previewPdf(doc, filename, titulo) {
+    const frame = document.getElementById('pdfFrame');
+    const btn = document.getElementById('btnPdfDownload');
+    if (!frame || !btn || typeof openModal !== 'function') { doc.save(filename); return; }
+    if (frame._blobUrl) URL.revokeObjectURL(frame._blobUrl);
+    frame._blobUrl = doc.output('bloburl');
+    frame.src = frame._blobUrl;
+    const t = document.getElementById('pdfTitulo');
+    if (t) t.textContent = 'Vista previa — ' + (titulo || filename);
+    btn.onclick = () => { doc.save(filename); if (typeof closeModal === 'function') closeModal('modalPdf'); };
+    openModal('modalPdf');
+  }
+
   // ── Encabezado corporativo (se dibuja en cada página vía didDrawPage) ──
   function header(doc, titulo, subtitulo) {
     const W = doc.internal.pageSize.getWidth();
@@ -267,23 +283,46 @@
       }
     }));
 
-    doc.save('inventario_' + new Date().toISOString().slice(0, 10) + '.pdf');
+    previewPdf(doc, 'inventario_' + new Date().toISOString().slice(0, 10) + '.pdf', 'Reporte de inventario');
   }
 
   // ═══════════════════════════════════════════════════════
   //  REPORTE — LOTES (gasto por lote)
   //  Muestra cada lote con su costo total. Simple y directo.
   // ═══════════════════════════════════════════════════════
-  function exportLotes() {
+  // opts (opcional): { q, desde, hasta, campo } — filtros heredados de la vista
+  // Inventario. campo: 'compra' filtra por fecha de compra, 'vence' por vencimiento.
+  function exportLotes(opts) {
+    opts = opts || {};
     const doc = getDoc();
     if (!doc) return;
     const titulo = 'REPORTE DE LOTES';
-    const subtitulo = 'Costo de cada lote comprado';
+    const q = (opts.q || '').toLowerCase().trim();
+    const fDesde = opts.desde || '', fHasta = opts.hasta || '';
+    const porVence = (opts.campo || 'compra') === 'vence';
 
     // Todos los lotes, ordenados por fecha de compra (más antiguo primero)
-    const lotes = (Store.lotes || []).slice().sort(
+    let lotes = (Store.lotes || []).slice().sort(
       (a, b) => new Date(a.fecha_compra) - new Date(b.fecha_compra)
     );
+    if (q) lotes = lotes.filter(l => {
+      const p = Store.getProducto(l.producto_id);
+      return [p ? p.nombre : '', Store.categoriaNombre(p ? p.categoria_id : ''), l.tamaño || '', l.sabor || '']
+        .join(' ').toLowerCase().includes(q);
+    });
+    if (fDesde || fHasta) {
+      const iso = d => d ? fechaLocalISO(d) : '';
+      lotes = lotes.filter(l => {
+        const f = iso(porVence ? l.vencimiento : l.fecha_compra);
+        return f && (!fDesde || f >= fDesde) && (!fHasta || f <= fHasta);
+      });
+    }
+
+    // Subtítulo que refleja los filtros aplicados
+    const partes = [];
+    if (fDesde || fHasta) partes.push((porVence ? 'Vencimiento' : 'Compras') + ' del ' + (fDesde ? fecha(fDesde + 'T12:00:00') : 'inicio') + ' al ' + (fHasta ? fecha(fHasta + 'T12:00:00') : 'hoy'));
+    if (q) partes.push('filtro: "' + opts.q.trim() + '"');
+    const subtitulo = partes.length ? partes.join(' · ') : 'Costo de cada lote comprado';
 
     let gastoTotal = 0, unidadesTotal = 0;
     const body = lotes.map(l => {
@@ -352,27 +391,41 @@
       }
     }));
 
-    doc.save('lotes_' + new Date().toISOString().slice(0, 10) + '.pdf');
+    previewPdf(doc, 'lotes_' + new Date().toISOString().slice(0, 10) + '.pdf', 'Reporte de lotes');
   }
 
   // ═══════════════════════════════════════════════════════
   //  REPORTE 2 — VENTAS DEL DÍA / RANGO
   // ═══════════════════════════════════════════════════════
-  async function exportVentas(dateStr) {
+  // filtros: string (fecha de un día, compat) u objeto { desde, hasta, q }
+  // heredado de la vista Ventas — el PDF refleja exactamente lo que se ve.
+  async function exportVentas(filtros) {
     const doc = getDoc();
     if (!doc) return;
-    dateStr = dateStr || (typeof fechaLocalISO === 'function' ? fechaLocalISO() : new Date().toISOString().slice(0, 10));
+    const hoy = (typeof fechaLocalISO === 'function' ? fechaLocalISO() : new Date().toISOString().slice(0, 10));
+    if (typeof filtros === 'string' || !filtros) filtros = { desde: filtros || hoy };
+    const desde = filtros.desde || hoy;
+    const hasta = filtros.hasta || desde;
+    const q = (filtros.q || '').toLowerCase().trim();
 
     let ventas;
     try {
-      ventas = await Sheets.loadVentasRango(dateStr, dateStr);
+      ventas = await Sheets.loadVentasRango(desde, hasta);
     } catch (e) {
       alert('No se pudieron leer las ventas: ' + (e && e.message ? e.message : e));
       return;
     }
+    // Mismo criterio que la vista: la venta incluye algún ítem que coincida
+    if (q) ventas = ventas.filter(v => (v.items || []).some(it =>
+      [it.nombre || it.producto_nombre || '', it.tamaño || '', it.sabor || '']
+        .join(' ').toLowerCase().includes(q)));
 
     const titulo = 'REPORTE DE VENTAS';
-    const subtitulo = 'Ventas del ' + fecha(dateStr + 'T12:00:00');
+    const multiDia = desde !== hasta;
+    let subtitulo = multiDia
+      ? 'Ventas del ' + fecha(desde + 'T12:00:00') + ' al ' + fecha(hasta + 'T12:00:00')
+      : 'Ventas del ' + fecha(desde + 'T12:00:00');
+    if (q) subtitulo += ' · producto: "' + filtros.q.trim() + '"';
 
     // Totales
     let total = 0, ganancia = 0, cash = 0, cashN = 0, qr = 0, qrN = 0, totUnidades = 0;
@@ -389,7 +442,7 @@
       return [
         String(i + 1),
         v.id || '',
-        v.hora || '',
+        multiDia ? (fecha(v.fecha) + ' ' + (v.hora || '')) : (v.hora || ''),
         v.metodo || '',
         String(nItems),
         money(v.ganancia),
@@ -400,7 +453,7 @@
     header(doc, titulo, subtitulo);
     let y = 34;
     y = resumenCajas(doc, y, [
-      { label: 'Total del día', value: money(total), color: C.navy, sub: ventas.length + ' ventas' },
+      { label: multiDia ? 'Total del rango' : 'Total del día', value: money(total), color: C.navy, sub: ventas.length + ' ventas' },
       { label: 'Ganancia', value: money(ganancia), color: C.green },
       { label: 'Efectivo', value: money(cash), color: C.green, sub: cashN + ' op.' },
       { label: 'QR', value: money(qr), color: [40, 90, 180], sub: qrN + ' op.' }
@@ -430,6 +483,8 @@
     const prodMap = {};
     for (const v of ventas) {
       for (const it of (v.items || [])) {
+        // Con filtro de producto activo, el detalle solo suma los ítems que coinciden
+        if (q && ![it.nombre || it.producto_nombre || '', it.tamaño || '', it.sabor || ''].join(' ').toLowerCase().includes(q)) continue;
         const key = [it.nombre || it.producto_nombre || it.id, it.tamaño || '', it.sabor || ''].join('|');
         if (!prodMap[key]) prodMap[key] = {
           nombre: it.nombre || it.producto_nombre || it.id || '—',
@@ -454,7 +509,7 @@
       }));
     }
 
-    doc.save('ventas_' + dateStr + '.pdf');
+    previewPdf(doc, 'ventas_' + desde + (multiDia ? '_a_' + hasta : '') + '.pdf', 'Reporte de ventas');
   }
 
   // Exponer API global
