@@ -304,3 +304,7 @@ input,select,textarea{font-family:inherit}
 }
 .cat-search-item:hover,.cat-search-item.active{background:var(--surface3);color:var(--cyan)}
 .cat-search-empty{padding:8px 12px;color:var(--text3);font-size:.85rem}
+
+/* Encabezados ordenables del inventario */
+.inv-table th.inv-sort{cursor:pointer;user-select:none}
+.inv-table th.inv-sort:hover{color:var(--text)}

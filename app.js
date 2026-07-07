@@ -913,33 +913,75 @@ function renderVencerPanel() {
   }).join('');
 }
 
+let _invSort = { key: null, dir: 1 };   // ordenamiento activo de la tabla de inventario
+
+function limpiarFiltroInv() {
+  $('invFDesde').value = '';
+  $('invFHasta').value = '';
+  renderInventory($('invSearch').value);
+}
+
 function renderInventory(filter='') {
   renderVencerPanel();
   const body = $('invBody');
   const q = (filter||'').toLowerCase().trim();
   let vars = todasLasVariantes();
   if (q) vars = vars.filter(v => v.producto.nombre.toLowerCase().includes(q) || Store.categoriaNombre(v.producto.categoria_id).toLowerCase().includes(q));
-  if (!vars.length) { body.innerHTML = `<tr><td colspan="8" class="empty-cell">Sin productos</td></tr>`; return; }
-  body.innerHTML = vars.map(v => {
+
+  // Filas con los datos ya calculados (para filtrar por fecha y ordenar)
+  const rankEstado = (stock, min) => stock <= 0 ? 0 : (stock < min ? 1 : 2); // agotado < bajo < ok
+  let rows = vars.map(v => {
     const stock = Store.variantStock(v.producto.id, v.tamaño, v.sabor);
     const min = v.producto.stock_min || 0;
+    const lots = Store.lotesActivos(v.producto.id, v.tamaño, v.sabor);
+    const vence = lots.map(l=>l.vencimiento).filter(Boolean).sort()[0] || '';
+    return { v, stock, min, lots,
+      nombre: v.producto.nombre, categoria: Store.categoriaNombre(v.producto.categoria_id),
+      tamaño: v.tamaño || '', sabor: v.sabor || '',
+      estado: rankEstado(stock, min), vence };
+  });
+
+  // Filtro por rango de fechas: vencimiento próximo o fecha de compra de lotes activos
+  const fDesde = $('invFDesde').value, fHasta = $('invFHasta').value;
+  if (fDesde || fHasta) {
+    const enRango = f => f && (!fDesde || f >= fDesde) && (!fHasta || f <= fHasta);
+    const campo = $('invFCampo').value;
+    rows = rows.filter(r => campo === 'compra'
+      ? r.lots.some(l => enRango(l.fecha_compra ? fechaLocalISO(l.fecha_compra) : ''))
+      : enRango(r.vence ? fechaLocalISO(r.vence) : ''));
+  }
+
+  // Ordenamiento por columna (clic en el encabezado)
+  if (_invSort.key) {
+    const k = _invSort.key, d = _invSort.dir;
+    rows.sort((a, b) => {
+      const x = a[k], y = b[k];
+      if (typeof x === 'number' && typeof y === 'number') return (x - y) * d;
+      // fechas/strings vacíos al final sin importar la dirección
+      if (!x && !y) return 0; if (!x) return 1; if (!y) return -1;
+      return String(x).localeCompare(String(y), 'es', { numeric: true }) * d;
+    });
+  }
+  document.querySelectorAll('.inv-table th.inv-sort').forEach(th => {
+    const activo = th.dataset.sort === _invSort.key;
+    th.textContent = th.textContent.replace(/ [▲▼]$/, '') + (activo ? (_invSort.dir === 1 ? ' ▲' : ' ▼') : '');
+  });
+
+  if (!rows.length) { body.innerHTML = `<tr><td colspan="8" class="empty-cell">Sin productos</td></tr>`; return; }
+  body.innerHTML = rows.map(r => {
+    const { v, stock, min, lots } = r;
     let estado = '<span class="badge ok">OK</span>';
     if (stock <= 0) estado = '<span class="badge red">Agotado</span>';
     else if (stock < min) estado = '<span class="badge warn">Stock bajo</span>';
-    // vencimiento más próximo
-    const lots = Store.lotesActivos(v.producto.id, v.tamaño, v.sabor);
     let venceTxt = '—';
-    if (lots.length) {
-      const prox = lots.map(l=>l.vencimiento).filter(Boolean).sort()[0];
-      if (prox) {
-        const d = daysToExpiry(prox);
-        venceTxt = `<span class="${d!=null && d<=EXPIRY_WARN_DAYS?'exp-warn':''}">${fmtDate(prox)}</span>`;
-      }
+    if (r.vence) {
+      const d = daysToExpiry(r.vence);
+      venceTxt = `<span class="${d!=null && d<=EXPIRY_WARN_DAYS?'exp-warn':''}">${fmtDate(r.vence)}</span>`;
     }
     const nLotes = lots.length;
     return `<tr class="inv-row" onclick='verLotes("${esc(v.producto.id)}", ${esc(JSON.stringify(v.tamaño||''))}, ${esc(JSON.stringify(v.sabor||''))})' title="Ver lotes FIFO">
       <td>${esc(v.producto.nombre)}</td>
-      <td>${esc(Store.categoriaNombre(v.producto.categoria_id))}</td>
+      <td>${esc(r.categoria)}</td>
       <td>${esc(v.tamaño)||'—'}</td><td>${esc(v.sabor)||'—'}</td>
       <td style="font-weight:700">${stock} ${nLotes?`<span class="inv-lotes-tag">${nLotes} lote${nLotes>1?'s':''}</span>`:''}</td><td>${min}</td>
       <td>${estado}</td><td>${venceTxt}</td>
@@ -1330,6 +1372,14 @@ async function init() {
   $('btnPrintTicket').addEventListener('click', () => window.print());
   $('prodSearch').addEventListener('input', e => renderProducts(e.target.value));
   $('invSearch').addEventListener('input', e => renderInventory(e.target.value));
+  // Clic en encabezado de inventario: ordena por esa columna (2º clic invierte)
+  document.querySelectorAll('.inv-table th.inv-sort').forEach(th => {
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      _invSort = { key: k, dir: _invSort.key === k ? -_invSort.dir : 1 };
+      renderInventory($('invSearch').value);
+    });
+  });
 
   // Ventas: fecha hoy
   $('ventasFecha').value = fechaLocalISO();

@@ -129,7 +129,14 @@
 <!-- ═══════════ INVENTARIO ═══════════ -->
 <section id="view-inventario" class="view">
   <div class="toolbar">
-    <input id="invSearch" class="toolbar-search" placeholder="Buscar…">
+    <input id="invSearch" class="toolbar-search" placeholder="Buscar producto o categoría…">
+    <select id="invFCampo" class="form-input" style="width:auto" onchange="renderInventory($('invSearch').value)">
+      <option value="vence">Vencimiento</option>
+      <option value="compra">Fecha compra</option>
+    </select>
+    <input id="invFDesde" class="form-input" type="date" style="width:auto" title="Desde" onchange="renderInventory($('invSearch').value)">
+    <input id="invFHasta" class="form-input" type="date" style="width:auto" title="Hasta" onchange="renderInventory($('invSearch').value)">
+    <button class="btn btn-ghost btn-sm" onclick="limpiarFiltroInv()" title="Quitar filtro de fechas">✕</button>
     <span class="toolbar-spacer"></span>
     <button id="btnRefreshInv" class="btn btn-ghost">↻ Actualizar</button>
     <button id="btnLotesPDF" class="btn btn-ghost">📄 Lotes</button>
@@ -146,8 +153,10 @@
     </div>
     <table class="inv-table">
       <thead><tr>
-        <th>Producto</th><th>Categoría</th><th>Tamaño</th><th>Sabor</th>
-        <th>Stock</th><th>Mín.</th><th>Estado</th><th>Vence</th>
+        <th class="inv-sort" data-sort="nombre">Producto</th><th class="inv-sort" data-sort="categoria">Categoría</th>
+        <th class="inv-sort" data-sort="tamaño">Tamaño</th><th class="inv-sort" data-sort="sabor">Sabor</th>
+        <th class="inv-sort" data-sort="stock">Stock</th><th class="inv-sort" data-sort="min">Mín.</th>
+        <th class="inv-sort" data-sort="estado">Estado</th><th class="inv-sort" data-sort="vence">Vence</th>
       </tr></thead>
       <tbody id="invBody"></tbody>
     </table>
