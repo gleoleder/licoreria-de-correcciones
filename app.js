@@ -953,14 +953,25 @@ function verLotes(prodId, tam, sab) {
   const variante = [tam, sab].filter(Boolean).join(' · ') || '—';
   $('lotesTitulo').textContent = `${p.nombre} · ${variante}`;
   // Todos los lotes de la variante, ordenados FIFO (más antiguo primero)
-  const lots = Store.lotesDeVariante(prodId, tam, sab);
+  const lotsAll = Store.lotesDeVariante(prodId, tam, sab);
+  let lots = lotsAll;
+  // Filtro por rango de fecha de compra (inputs del modal; vacíos = sin filtro)
+  const fDesde = $('lotesFDesde').value, fHasta = $('lotesFHasta').value;
+  const filtrado = fDesde || fHasta;
+  if (filtrado) {
+    lots = lots.filter(l => {
+      const f = l.fecha_compra ? fechaLocalISO(l.fecha_compra) : '';
+      return (!fDesde || f >= fDesde) && (!fHasta || f <= fHasta);
+    });
+  }
   const stockTotal = lots.filter(l=>l.qty_restante>0).reduce((s,l)=>s+l.qty_restante,0);
-  $('lotesResumen').innerHTML = `Stock total: <b>${stockTotal}</b> · ${lots.length} lote${lots.length!==1?'s':''}`;
+  $('lotesResumen').innerHTML = `Stock total: <b>${stockTotal}</b> · ${lots.length} lote${lots.length!==1?'s':''}${filtrado?' (filtrado)':''}`;
 
   if (!lots.length) {
-    $('lotesBody').innerHTML = `<tr><td colspan="8" class="empty-cell">Sin lotes. Usa "+ Entrada / Ajuste".</td></tr>`;
+    $('lotesBody').innerHTML = `<tr><td colspan="8" class="empty-cell">${filtrado?'Sin lotes en ese rango de fechas.':'Sin lotes. Usa "+ Entrada / Ajuste".'}</td></tr>`;
   } else {
-    $('lotesBody').innerHTML = lots.map((l, i) => {
+    $('lotesBody').innerHTML = lots.map(l => {
+      const i = lotsAll.indexOf(l);
       const agotado = (l.qty_restante||0) <= 0;
       const dVence  = daysToExpiry(l.vencimiento);
       const venceCls = dVence!=null && dVence<=EXPIRY_WARN_DAYS ? 'exp-warn' : '';
@@ -987,6 +998,11 @@ function verLotes(prodId, tam, sab) {
 let _lotesCtx = null;
 function refrescarLotesModal() {
   if (_lotesCtx) verLotes(_lotesCtx.prodId, _lotesCtx.tam, _lotesCtx.sab);
+}
+function limpiarFiltroLotes() {
+  $('lotesFDesde').value = '';
+  $('lotesFHasta').value = '';
+  refrescarLotesModal();
 }
 
 // ── Editar un lote (todos los campos) ─────────────────

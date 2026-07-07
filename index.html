@@ -377,6 +377,11 @@
     </div>
     <div class="modal-body">
       <p class="form-hint" style="margin-bottom:10px">Orden FIFO: el lote 1º (más antiguo) se vende primero.</p>
+      <div style="display:flex;gap:8px;align-items:end;margin-bottom:10px;flex-wrap:wrap">
+        <div class="form-group" style="margin:0"><label class="form-label">Compra desde</label><input id="lotesFDesde" class="form-input" type="date" onchange="refrescarLotesModal()"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Compra hasta</label><input id="lotesFHasta" class="form-input" type="date" onchange="refrescarLotesModal()"></div>
+        <button class="btn btn-ghost btn-sm" onclick="limpiarFiltroLotes()" title="Quitar filtro">✕ Limpiar</button>
+      </div>
       <table class="data-table">
         <thead><tr>
           <th>#</th><th>Compra</th><th>Costo/u</th><th>Rest. / inicial</th><th>Valor</th><th>Vence</th><th>Notas</th><th>Acciones</th>
