@@ -236,7 +236,10 @@
   <div class="modal" style="max-width:380px">
     <div class="modal-head"><h3 class="modal-title">Elegir variante</h3><button class="modal-x" data-close="modalVariante">✕</button></div>
     <div class="modal-body">
-      <p id="mvNombre" style="font-weight:700;color:var(--cyan);margin-bottom:12px"></p>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px">
+        <span id="mvNombre" style="font-weight:700;color:var(--cyan)"></span>
+        <span id="mvPrecio" style="font-size:1.5rem;font-weight:800;color:var(--green,#2ecc71);white-space:nowrap"></span>
+      </div>
       <div class="form-group"><label class="form-label">Tamaño</label><select id="mvTamaño" class="form-input"></select></div>
       <div class="form-group"><label class="form-label">Sabor</label><select id="mvSabor" class="form-input"></select></div>
       <div class="form-group"><label class="form-label">Código / presentación</label><select id="mvBarcode" class="form-input"></select></div>

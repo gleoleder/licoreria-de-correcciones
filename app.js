@@ -403,6 +403,7 @@ function abrirVariante(producto) {
   $('mvSabor').onchange  = _mvRefreshStock;
   _mvRefreshStock();
   openModal('modalVariante');
+  $('mvTamaño').focus();   // para que Enter añada de inmediato
 }
 function _mvFillSabores() {
   const sabs = Store.saboresDe(_mvProducto, $('mvTamaño').value);
@@ -412,9 +413,17 @@ function _mvRefreshStock() {
   const t = $('mvTamaño').value, s = $('mvSabor').value;
   const info = Store.variantInfo(_mvProducto, t, s);
   const st = Store.variantStock(_mvProducto.id, t, s);
-  $('mvStock').innerHTML = `Precio: <b>${fmt(info.precio)}</b> · Stock: <b>${st}</b>${info.code?` · cód ${esc(info.code)}`:''}`;
+  $('mvPrecio').textContent = fmt(info.precio);
+  $('mvStock').innerHTML = `Stock: <b>${st}</b>${info.code?` · cód ${esc(info.code)}`:''}`;
   $('mvStock').style.color = st > 0 ? 'var(--text2)' : 'var(--red)';
 }
+// Enter dentro del modal de variante = Añadir (sin tener que ir al botón)
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const modal = $('modalVariante');
+  if (modal && modal.classList.contains('open')) { e.preventDefault(); confirmVariante(); }
+});
+
 function confirmVariante() {
   if (!_mvProducto) return;
   addToCart(_mvProducto, $('mvTamaño').value, $('mvSabor').value);
